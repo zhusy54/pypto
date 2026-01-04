@@ -18,27 +18,20 @@
 namespace pypto {
 namespace ir {
 
-// Store original shared_ptr in thread-local storage for copy-on-write optimization
-thread_local const ExprPtr* g_current_expr = nullptr;
-
 ExprPtr ExprMutator::VisitExpr(const ExprPtr& expr) {
   // Store the original shared_ptr for potential reuse
-  const ExprPtr* prev = g_current_expr;
-  g_current_expr = &expr;
-  ExprPtr result = ExprFunctor::VisitExpr(expr);
-  g_current_expr = prev;
-  return result;
+  return ExprFunctor::VisitExpr(expr);
 }
 
 // Leaf nodes - return original shared_ptr (immutable)
 ExprPtr ExprMutator::VisitExpr_(const VarPtr& op) {
   // Var is immutable, return original
-  return *g_current_expr;
+  return op;
 }
 
 ExprPtr ExprMutator::VisitExpr_(const ConstIntPtr& op) {
   // ConstInt is immutable, return original
-  return *g_current_expr;
+  return op;
 }
 
 ExprPtr ExprMutator::VisitExpr_(const CallPtr& op) {
@@ -59,7 +52,7 @@ ExprPtr ExprMutator::VisitExpr_(const CallPtr& op) {
   if (changed) {
     return std::make_shared<const Call>(op->op_, std::move(new_args), op->dtype_, op->span_);
   } else {
-    return *g_current_expr;
+    return op;
   }
 }
 
@@ -72,7 +65,7 @@ ExprPtr ExprMutator::VisitExpr_(const CallPtr& op) {
       return std::make_shared<const OpType>(std::move(new_left), std::move(new_right), op->dtype_, \
                                             op->span_);                                            \
     } else {                                                                                       \
-      return *g_current_expr;                                                                      \
+      return op;                                                                                   \
     }                                                                                              \
   }
 
@@ -110,7 +103,7 @@ DEFINE_BINARY_MUTATOR(BitShiftRight)
     if (new_operand.get() != op->operand_.get()) {                                          \
       return std::make_shared<const OpType>(std::move(new_operand), op->dtype_, op->span_); \
     } else {                                                                                \
-      return *g_current_expr;                                                               \
+      return op;                                                                            \
     }                                                                                       \
   }
 
