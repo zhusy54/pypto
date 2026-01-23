@@ -196,7 +196,8 @@ class IRSerializer::Impl {
     return msgpack::object(span_map, zone);
   }
 
-  msgpack::object SerializeMemRef(const std::optional<std::shared_ptr<MemRef>>& memref_opt, msgpack::zone& zone) {
+  msgpack::object SerializeMemRef(const std::optional<std::shared_ptr<MemRef>>& memref_opt,
+                                  msgpack::zone& zone) {
     if (!memref_opt.has_value()) {
       return msgpack::object();  // null
     }

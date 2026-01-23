@@ -221,7 +221,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
   std::vector<DependencyEdge> dependencies;
 
   // Track last write and last read for each variable
-  std::map<std::string, StmtPtr> last_write;  // var_name -> stmt that last wrote it
+  std::map<std::string, StmtPtr> last_write;               // var_name -> stmt that last wrote it
   std::map<std::string, std::vector<StmtPtr>> last_reads;  // var_name -> stmts that read it
 
   // Helper class to collect variable reads and writes

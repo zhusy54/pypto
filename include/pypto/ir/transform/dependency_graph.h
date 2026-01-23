@@ -26,33 +26,33 @@ namespace ir {
  * @brief Represents a basic block in the control flow graph
  */
 struct BasicBlock {
-  int id;                                // Unique identifier
-  std::vector<StmtPtr> statements;       // Statements in this block
-  std::vector<int> predecessors;         // Predecessor block IDs
-  std::vector<int> successors;           // Successor block IDs
-  bool is_loop_body = false;             // True if this block is a loop body
+  int id;                           // Unique identifier
+  std::vector<StmtPtr> statements;  // Statements in this block
+  std::vector<int> predecessors;    // Predecessor block IDs
+  std::vector<int> successors;      // Successor block IDs
+  bool is_loop_body = false;        // True if this block is a loop body
 };
 
 /**
  * @brief Represents a data dependency edge in the dependency graph
  */
 struct DependencyEdge {
-  enum Type { RAW, WAR, WAW };           // Read-After-Write, Write-After-Read, Write-After-Write
+  enum Type { RAW, WAR, WAW };  // Read-After-Write, Write-After-Read, Write-After-Write
 
-  StmtPtr producer;                      // Producer statement
-  StmtPtr consumer;                      // Consumer statement
-  VarPtr variable;                       // Variable creating the dependency
-  Type type;                             // Dependency type
-  std::string producer_pipe;             // Pipe type of producer (e.g., "VECTOR")
-  std::string consumer_pipe;             // Pipe type of consumer
+  StmtPtr producer;           // Producer statement
+  StmtPtr consumer;           // Consumer statement
+  VarPtr variable;            // Variable creating the dependency
+  Type type;                  // Dependency type
+  std::string producer_pipe;  // Pipe type of producer (e.g., "VECTOR")
+  std::string consumer_pipe;  // Pipe type of consumer
 };
 
 /**
  * @brief Complete dependency graph analysis result
  */
 struct DependencyGraph {
-  std::vector<BasicBlock> blocks;          // All basic blocks
-  std::vector<DependencyEdge> dependencies; // All dependency edges
+  std::vector<BasicBlock> blocks;            // All basic blocks
+  std::vector<DependencyEdge> dependencies;  // All dependency edges
 
   DependencyGraph() = default;
   DependencyGraph(std::vector<BasicBlock> blks, std::vector<DependencyEdge> deps)

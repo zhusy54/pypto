@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
-#include "pypto/ir/transform/dependency_graph.h"
-#include "pypto/ir/transform/base/mutator.h"
 #include "pypto/ir/function.h"
+#include "pypto/ir/transform/base/mutator.h"
+#include "pypto/ir/transform/dependency_graph.h"
 
 namespace pypto {
 namespace ir {

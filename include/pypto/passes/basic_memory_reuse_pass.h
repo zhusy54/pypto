@@ -28,11 +28,11 @@ namespace ir {
  * @brief Lifetime interval for a TileType variable (based on topological order)
  */
 struct LifetimeInterval {
-  VarPtr variable;          ///< The variable
-  int def_point;            ///< Definition point (topological order)
-  int last_use_point;       ///< Last use point (topological order)
-  MemorySpace memory_space; ///< Memory space
-  uint64_t size;            ///< Size in bytes
+  VarPtr variable;           ///< The variable
+  int def_point;             ///< Definition point (topological order)
+  int last_use_point;        ///< Last use point (topological order)
+  MemorySpace memory_space;  ///< Memory space
+  uint64_t size;             ///< Size in bytes
 };
 
 /**
@@ -74,8 +74,7 @@ class BasicMemoryReusePass : public Pass {
    * @return Map of Var -> LifetimeInterval
    */
   std::map<VarPtr, LifetimeInterval> ComputeLifetimesFromDependencies(
-      const std::vector<BasicBlock>& blocks,
-      const std::vector<DependencyEdge>& dependencies);
+      const std::vector<BasicBlock>& blocks, const std::vector<DependencyEdge>& dependencies);
 
   /**
    * @brief Identify variables that can share memory
@@ -86,8 +85,7 @@ class BasicMemoryReusePass : public Pass {
    * @param lifetimes Lifetime intervals
    * @return Reuse map: var_new -> var_old (var_new reuses var_old's MemRef)
    */
-  std::map<VarPtr, VarPtr> IdentifyReuseOpportunities(
-      const std::map<VarPtr, LifetimeInterval>& lifetimes);
+  std::map<VarPtr, VarPtr> IdentifyReuseOpportunities(const std::map<VarPtr, LifetimeInterval>& lifetimes);
 
   /**
    * @brief Apply MemRef sharing to function body
@@ -98,8 +96,7 @@ class BasicMemoryReusePass : public Pass {
    * @param reuse_map Reuse relationships
    * @return Transformed statement with MemRef sharing
    */
-  StmtPtr ApplyMemRefSharing(const StmtPtr& stmt,
-                             const std::map<VarPtr, VarPtr>& reuse_map);
+  StmtPtr ApplyMemRefSharing(const StmtPtr& stmt, const std::map<VarPtr, VarPtr>& reuse_map);
 
   /**
    * @brief Assign topological order to statements
@@ -108,9 +105,8 @@ class BasicMemoryReusePass : public Pass {
    * @param dependencies Dependency edges
    * @return Map of Stmt -> topological order
    */
-  std::map<StmtPtr, int> AssignTopologicalOrder(
-      const std::vector<BasicBlock>& blocks,
-      const std::vector<DependencyEdge>& dependencies);
+  std::map<StmtPtr, int> AssignTopologicalOrder(const std::vector<BasicBlock>& blocks,
+                                                const std::vector<DependencyEdge>& dependencies);
 };
 
 }  // namespace ir

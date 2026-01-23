@@ -36,8 +36,7 @@ FunctionPtr BasicMemoryReusePass::Run(const FunctionPtr& func) {
   DependencyAnalyzer analyzer;
   DependencyGraph graph = analyzer.Analyze(func);
 
-  LOG_INFO << "Analyzed " << graph.blocks.size() << " blocks, "
-           << graph.dependencies.size() << " edges";
+  LOG_INFO << "Analyzed " << graph.blocks.size() << " blocks, " << graph.dependencies.size() << " edges";
 
   if (graph.blocks.empty()) {
     LOG_WARN << "No basic blocks found, skipping memory reuse";
@@ -65,14 +64,12 @@ FunctionPtr BasicMemoryReusePass::Run(const FunctionPtr& func) {
   // Step 4: Apply MemRef sharing
   StmtPtr new_body = ApplyMemRefSharing(func->body_, reuse_map);
 
-  return std::make_shared<const Function>(
-      func->name_, func->params_, func->return_types_, new_body, func->span_);
+  return std::make_shared<const Function>(func->name_, func->params_, func->return_types_, new_body,
+                                          func->span_);
 }
 
 std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDependencies(
-    const std::vector<BasicBlock>& blocks,
-    const std::vector<DependencyEdge>& dependencies) {
-
+    const std::vector<BasicBlock>& blocks, const std::vector<DependencyEdge>& dependencies) {
   std::map<VarPtr, LifetimeInterval> lifetimes;
 
   // Step 1: Assign topological order to all statements
@@ -167,7 +164,6 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
 
 std::map<VarPtr, VarPtr> BasicMemoryReusePass::IdentifyReuseOpportunities(
     const std::map<VarPtr, LifetimeInterval>& lifetimes) {
-
   std::map<VarPtr, VarPtr> reuse_map;
 
   // Group variables by memory_space
@@ -179,9 +175,8 @@ std::map<VarPtr, VarPtr> BasicMemoryReusePass::IdentifyReuseOpportunities(
   // For each memory space, find reuse opportunities
   for (auto& [space, vars] : groups) {
     // Sort by def_point
-    std::sort(vars.begin(), vars.end(), [&](VarPtr a, VarPtr b) {
-      return lifetimes.at(a).def_point < lifetimes.at(b).def_point;
-    });
+    std::sort(vars.begin(), vars.end(),
+              [&](VarPtr a, VarPtr b) { return lifetimes.at(a).def_point < lifetimes.at(b).def_point; });
 
     // Greedy matching: for each variable, try to reuse from previous variables
     for (size_t i = 1; i < vars.size(); i++) {
@@ -203,9 +198,8 @@ std::map<VarPtr, VarPtr> BasicMemoryReusePass::IdentifyReuseOpportunities(
         if (!overlaps && size_ok) {
           // Can reuse!
           reuse_map[curr_var] = prev_var;
-          LOG_INFO << "Variable " << curr_var->name_
-                   << " can reuse " << prev_var->name_
-                   << " (lifetime [" << curr_lifetime.def_point << ", " << curr_lifetime.last_use_point << "]"
+          LOG_INFO << "Variable " << curr_var->name_ << " can reuse " << prev_var->name_ << " (lifetime ["
+                   << curr_lifetime.def_point << ", " << curr_lifetime.last_use_point << "]"
                    << " vs [" << prev_lifetime.def_point << ", " << prev_lifetime.last_use_point << "])";
           break;  // Found a reuse target, stop searching
         }
@@ -216,14 +210,12 @@ std::map<VarPtr, VarPtr> BasicMemoryReusePass::IdentifyReuseOpportunities(
   return reuse_map;
 }
 
-StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
-    const StmtPtr& stmt, const std::map<VarPtr, VarPtr>& reuse_map) {
-
+StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(const StmtPtr& stmt,
+                                                 const std::map<VarPtr, VarPtr>& reuse_map) {
   // Custom IRMutator for MemRef sharing
   class MemRefSharingMutator : public IRMutator {
    public:
-    explicit MemRefSharingMutator(const std::map<VarPtr, VarPtr>& reuse_map)
-        : reuse_map_(reuse_map) {}
+    explicit MemRefSharingMutator(const std::map<VarPtr, VarPtr>& reuse_map) : reuse_map_(reuse_map) {}
 
     StmtPtr VisitStmt_(const AssignStmtPtr& op) override {
       // Check if this variable should reuse another's MemRef
@@ -231,8 +223,7 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
         VarPtr source_var = reuse_map_.at(op->var_);
 
         // Get source's TileType and MemRef
-        auto source_tile_type =
-            std::dynamic_pointer_cast<const TileType>(source_var->GetType());
+        auto source_tile_type = std::dynamic_pointer_cast<const TileType>(source_var->GetType());
 
         if (!source_tile_type || !source_tile_type->memref_.has_value()) {
           LOG_ERROR << "Source variable " << source_var->name_ << " does not have MemRef";
@@ -242,8 +233,7 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
         std::optional<std::shared_ptr<MemRef>> source_memref = source_tile_type->memref_;
 
         // Get current variable's TileType
-        auto curr_tile_type =
-            std::dynamic_pointer_cast<const TileType>(op->var_->GetType());
+        auto curr_tile_type = std::dynamic_pointer_cast<const TileType>(op->var_->GetType());
 
         if (!curr_tile_type) {
           LOG_ERROR << "Current variable " << op->var_->name_ << " is not TileType";
@@ -251,15 +241,12 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
         }
 
         // Create new TileType with shared MemRef
-        auto new_tile_type = std::make_shared<const TileType>(
-            curr_tile_type->shape_,
-            curr_tile_type->dtype_,
-            source_memref,  // Share MemRef!
-            curr_tile_type->tile_view_);
+        auto new_tile_type = std::make_shared<const TileType>(curr_tile_type->shape_, curr_tile_type->dtype_,
+                                                              source_memref,  // Share MemRef!
+                                                              curr_tile_type->tile_view_);
 
         // Create new Var
-        auto new_var = std::make_shared<const Var>(
-            op->var_->name_, new_tile_type, op->var_->span_);
+        auto new_var = std::make_shared<const Var>(op->var_->name_, new_tile_type, op->var_->span_);
 
         // Visit value expression
         ExprPtr new_value = VisitExpr(op->value_);
@@ -279,9 +266,7 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
 }
 
 std::map<StmtPtr, int> BasicMemoryReusePass::AssignTopologicalOrder(
-    const std::vector<BasicBlock>& blocks,
-    const std::vector<DependencyEdge>& dependencies) {
-
+    const std::vector<BasicBlock>& blocks, const std::vector<DependencyEdge>& dependencies) {
   std::map<StmtPtr, int> order;
 
   // Build adjacency list for dependency graph

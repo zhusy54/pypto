@@ -69,12 +69,13 @@ def verify_memref_sharing(func, var_a_name, var_b_name):
     type_a = get_var_type(func, var_a_name)
     type_b = get_var_type(func, var_b_name)
 
-    assert type_a is not None, f"{var_a_name} 应该有 ShapedType"
-    assert type_b is not None, f"{var_b_name} 应该有 ShapedType"
+    assert type_a is not None, f"{var_a_name} should have ShapedType"
+    assert type_b is not None, f"{var_b_name} should have ShapedType"
 
-    # 使用 ShapedType.shares_memref_with() 方法检查是否共享同一个 MemRef
-    assert type_a.shares_memref_with(type_b), \
-        f"{var_b_name} 应该与 {var_a_name} 共享同一个 MemRef 对象 (C++ shared_ptr)"
+    # Use ShapedType.shares_memref_with() method to check if they share the same MemRef
+    assert type_a.shares_memref_with(type_b), (
+        f"{var_b_name} should share the same MemRef object (C++ shared_ptr) with {var_a_name}"
+    )
 
 
 def get_all_memref_addrs(func):
@@ -105,10 +106,10 @@ def get_all_memref_addrs(func):
 def test_basic_memory_reuse_simple():
     """Test BasicMemoryReusePass with a simple buffer reuse case.
 
-    核心概念：
-    - let 赋值是引用语义，不涉及内存分配
-    - 真正的内存复用是指：操作结果的底层缓冲区被后续操作复用
-    - 例如：tile_e 的缓冲区可以复用 tile_a 的缓冲区（tile_a 生命周期已结束）
+    Core concepts:
+    - let assignment has reference semantics, no memory allocation involved
+    - Real memory reuse means: the underlying buffer of operation results is reused by subsequent operations
+    - Example: tile_e's buffer can reuse tile_a's buffer (tile_a's lifetime has ended)
     """
     ib = builder.IRBuilder()
 
@@ -188,17 +189,18 @@ def test_basic_memory_reuse_simple():
 
     # Verify that fewer unique addresses are used after optimization
     unique_addrs_after = len(set(addrs_after.values()))
-    assert unique_addrs_after < len(addrs_after), \
+    assert unique_addrs_after < len(addrs_after), (
         f"Expected memory reuse, but all {len(addrs_after)} variables have unique addresses"
+    )
 
 
 def test_basic_memory_reuse_sequential():
     """Test BasicMemoryReusePass with sequential computation (ideal for buffer reuse).
 
-    核心概念：
-    - 顺序计算链中，每个操作的缓冲区在使用后立即失效
-    - 后续操作的缓冲区可以复用前面已失效的缓冲区
-    - 例如：tile_c 的缓冲区可以复用 tile_a 的缓冲区
+    Core concepts:
+    - In a sequential computation chain, each operation's buffer becomes invalid immediately after use
+    - Subsequent operations' buffers can reuse previously invalidated buffers
+    - Example: tile_c's buffer can reuse tile_a's buffer
     """
     ib = builder.IRBuilder()
 
@@ -279,46 +281,47 @@ def test_basic_memory_reuse_sequential():
     # Count unique memory addresses (should be minimal in sequential case)
     unique_addrs = len(set(addrs_after.values()))
     # We expect at most 2-3 unique addresses for this sequential pattern
-    assert unique_addrs <= 3, \
-        f"Sequential pattern should use at most 3 unique addresses, got {unique_addrs}"
+    assert unique_addrs <= 3, f"Sequential pattern should use at most 3 unique addresses, got {unique_addrs}"
 
 
 def test_basic_memory_reuse_different_sizes():
     """Test BasicMemoryReusePass with different tensor sizes (size-aware buffer reuse).
 
-    核心概念：
-    - 大缓冲区可以被小缓冲区复用（有足够空间）
-    - 小缓冲区不能被大缓冲区复用（空间不足）
-    - 例如：64x64 的缓冲区可以复用另一个 64x64 的缓冲区，
-           但 32x32 的缓冲区不能被 64x64 的缓冲区复用
+    Core concepts:
+    - Large buffers can be reused by small buffers (sufficient space available)
+    - Small buffers cannot be reused by large buffers (insufficient space)
+    - Example: A 64x64 buffer can reuse another 64x64 buffer,
+              but a 32x32 buffer cannot be reused by a 64x64 buffer
     """
     ib = builder.IRBuilder()
 
     with ib.function("test_different_sizes") as f:
-        # Define input and output parameters
+        # Define input and output parameters with different sizes
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         input_b = f.param("input_b", ir.TensorType([32, 32], DataType.FP32))
-        output = f.param("output", ir.TensorType([64, 64], DataType.FP32))
-        f.return_type(ir.TensorType([64, 64], DataType.FP32))
+        output_a = f.param("output_a", ir.TensorType([64, 64], DataType.FP32))
+        output_b = f.param("output_b", ir.TensorType([32, 32], DataType.FP32))
+        f.return_type(ir.TensorType([32, 32], DataType.FP32))
 
         # Load tiles of different sizes
         tile_a = ib.let("tile_a", block.load(input_a, 0, 0, 64, 64))  # 64x64 = 16384 bytes
         tile_b = ib.let("tile_b", block.load(input_b, 0, 0, 32, 32))  # 32x32 = 4096 bytes
 
-        # Compute with tile_a
+        # Compute with tile_a (64x64)
         tile_c = ib.let("tile_c", block.add(tile_a, tile_a))  # 64x64, tile_a dies
 
-        # tile_d can potentially reuse tile_a's memory (both 64x64)
-        # but NOT tile_b's memory (32x32 is too small)
-        tile_d = ib.let("tile_d", block.add(tile_c, tile_c))  # 64x64, tile_c dies
+        # Store tile_c (tile_c dies after this)
+        result_a = ib.let("result_a", block.store(tile_c, 0, 0, 64, 64, output_a))
 
-        # tile_e should be able to reuse the larger buffers (tile_a or tile_c)
-        tile_e = ib.let("tile_e", block.add(tile_d, tile_d))  # 64x64, tile_d dies
+        # Compute with tile_b (32x32)
+        # tile_d can potentially reuse tile_a or tile_c's memory (both 64x64 >= 32x32)
+        # but tile_a/tile_c cannot reuse tile_b's memory (32x32 < 64x64)
+        tile_d = ib.let("tile_d", block.add(tile_b, tile_b))  # 32x32
 
         # Store result
-        result = ib.let("result", block.store(tile_e, 0, 0, 64, 64, output))
+        result_b = ib.let("result_b", block.store(tile_d, 0, 0, 32, 32, output_b))
 
-        ib.return_stmt(result)
+        ib.return_stmt(result_b)
 
     func = f.get_result()
 
@@ -338,27 +341,24 @@ def test_basic_memory_reuse_different_sizes():
     assert optimized_func.name == "test_different_sizes"
 
     # Verify all expected variables have memrefs
-    for var_name in ["tile_a", "tile_b", "tile_c", "tile_d", "tile_e"]:
+    for var_name in ["tile_a", "tile_b", "tile_c", "tile_d"]:
         assert var_name in addrs_after, f"{var_name} should have a memref"
 
     # Expected lifetime analysis:
     # tile_a: [0, 2] - defined at 0, last used in tile_c at 2
-    # tile_b: [1, 1] - defined at 1, never used (no dependencies)
-    # tile_c: [2, 3] - defined at 2, last used in tile_d at 3
-    # tile_d: [3, 4] - defined at 3, last used in tile_e at 4
-    # tile_e: [4, 4] - defined at 4, used in store at 4
+    # tile_b: [1, 4] - defined at 1, last used in tile_d at 4
+    # tile_c: [2, 3] - defined at 2, last used in result_a at 3
+    # tile_d: [4, 5] - defined at 4, last used in result_b at 5
     #
     # Size-aware reuse opportunities:
-    # - tile_d (16384 bytes) can reuse tile_a (16384 bytes) - same size ✓
-    # - tile_e (16384 bytes) can reuse tile_a (16384 bytes) - same size ✓
-    # - tile_d should NOT reuse tile_b (4096 bytes) - too small ✗
-    # - tile_b (4096 bytes) could theoretically reuse tile_a (16384 bytes) if lifetimes allow
+    # - tile_d (4096 bytes, 32x32) can reuse tile_a (16384 bytes, 64x64) - smaller can reuse larger ✓
+    # - tile_d (4096 bytes) can reuse tile_c (16384 bytes, 64x64) - smaller can reuse larger ✓
+    # - tile_a/tile_c (16384 bytes) should NOT reuse tile_b (4096 bytes) - larger cannot reuse smaller ✗
 
-    # Verify that tile_d reuses tile_a's memory (same size, non-overlapping lifetimes) using object identity
+    # Verify that tile_d (32x32) can reuse tile_a's memory (64x64, large enough)
+    # or tile_c's memory (64x64, large enough, non-overlapping lifetimes)
+    # The greedy first-fit algorithm should reuse tile_a
     verify_memref_sharing(optimized_func, "tile_a", "tile_d")
-
-    # Verify that tile_e reuses tile_a's memory using object identity
-    verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
     # Extract MemRef objects to verify size checking
     assert isinstance(optimized_func.body, ir.SeqStmts)
@@ -368,7 +368,7 @@ def test_basic_memory_reuse_different_sizes():
         if isinstance(stmt, ir.AssignStmt):
             vars_dict[stmt.var.name] = stmt.var
 
-    # Verify that variables have correct types
+    # Verify that variables have correct types and sizes
     tile_a_var = vars_dict.get("tile_a")
     tile_b_var = vars_dict.get("tile_b")
     tile_d_var = vars_dict.get("tile_d")
@@ -376,10 +376,13 @@ def test_basic_memory_reuse_different_sizes():
     # Basic type checks
     if tile_a_var:
         assert isinstance(tile_a_var.type, core_ir.ShapedType), "tile_a should be ShapedType"
+        # tile_a is 64x64
     if tile_b_var:
         assert isinstance(tile_b_var.type, core_ir.ShapedType), "tile_b should be ShapedType"
+        # tile_b is 32x32
     if tile_d_var:
         assert isinstance(tile_d_var.type, core_ir.ShapedType), "tile_d should be ShapedType"
+        # tile_d is 32x32, should reuse larger buffer (tile_a or tile_c)
 
 
 def test_basic_memory_reuse_empty_function():
@@ -536,8 +539,9 @@ def test_basic_memory_reuse_with_dependencies():
 
     # Verify that fewer unique addresses are used after optimization
     unique_addrs = len(set(addrs.values()))
-    assert unique_addrs < len(addrs), \
+    assert unique_addrs < len(addrs), (
         f"Expected memory reuse, but all {len(addrs)} variables have unique addresses"
+    )
 
 
 def test_basic_memory_reuse_multiple_memory_spaces():
@@ -594,8 +598,9 @@ def test_basic_memory_reuse_multiple_memory_spaces():
         p = params[param_name]
         assert isinstance(p.type, core_ir.ShapedType)
         if p.type.memref is not None:
-            assert p.type.memref.memory_space_ == core_ir.MemorySpace.DDR, \
+            assert p.type.memref.memory_space_ == core_ir.MemorySpace.DDR, (
                 f"{param_name} should be in DDR memory space"
+            )
 
     # Verify all UB variables stay in UB
     ub_vars_found = 0
@@ -605,8 +610,9 @@ def test_basic_memory_reuse_multiple_memory_spaces():
             if var.name in ["tile_a", "tile_b", "tile_c", "tile_d"]:
                 assert isinstance(var.type, core_ir.ShapedType)
                 if var.type.memref is not None:
-                    assert var.type.memref.memory_space_ == core_ir.MemorySpace.UB, \
+                    assert var.type.memref.memory_space_ == core_ir.MemorySpace.UB, (
                         f"{var.name} should be in UB memory space"
+                    )
                     ub_vars_found += 1
 
     # Ensure we found all expected UB variables

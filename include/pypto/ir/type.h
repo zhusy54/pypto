@@ -167,8 +167,8 @@ struct TileView {
  */
 class ShapedType : public Type {
  public:
-  DataType dtype_;                             ///< Element data type
-  std::vector<ExprPtr> shape_;                 ///< Shape dimensions (symbolic or constant)
+  DataType dtype_;                                 ///< Element data type
+  std::vector<ExprPtr> shape_;                     ///< Shape dimensions (symbolic or constant)
   std::optional<std::shared_ptr<MemRef>> memref_;  ///< Optional memory reference (shared pointer)
 
   /**

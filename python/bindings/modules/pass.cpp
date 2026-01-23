@@ -15,9 +15,9 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 
+#include "pypto/passes/basic_memory_reuse_pass.h"
 #include "pypto/passes/identity_pass.h"
 #include "pypto/passes/init_memref.h"
-#include "pypto/passes/basic_memory_reuse_pass.h"
 
 namespace nb = nanobind;
 
@@ -45,7 +45,7 @@ void BindPass(nb::module_& m) {
 
   // BasicMemoryReusePass - basic memory reuse based on dependency analysis
   nb::class_<BasicMemoryReusePass, Pass>(passes, "BasicMemoryReusePass",
-                                          "A pass for basic memory reuse based on dependency graph")
+                                         "A pass for basic memory reuse based on dependency graph")
       .def(nb::init<>(), "Create a BasicMemoryReuse pass");
 }
 
