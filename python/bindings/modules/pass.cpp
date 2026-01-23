@@ -17,6 +17,7 @@
 
 #include "pypto/passes/identity_pass.h"
 #include "pypto/passes/init_memref.h"
+#include "pypto/passes/basic_memory_reuse_pass.h"
 
 namespace nb = nanobind;
 
@@ -41,6 +42,11 @@ void BindPass(nb::module_& m) {
   // InitMemRefPass - a pass that initializes memref for variables
   nb::class_<InitMemRefPass, Pass>(passes, "InitMemRefPass", "A pass that initializes memref for variables")
       .def(nb::init<>(), "Create an InitMemRef pass");
+
+  // BasicMemoryReusePass - basic memory reuse based on dependency analysis
+  nb::class_<BasicMemoryReusePass, Pass>(passes, "BasicMemoryReusePass",
+                                          "A pass for basic memory reuse based on dependency graph")
+      .def(nb::init<>(), "Create a BasicMemoryReuse pass");
 }
 
 }  // namespace python
