@@ -60,7 +60,7 @@ class Pass : public IRMutator {
 
 The `IdentityPass` is a simple concrete pass implementation used primarily for testing. It demonstrates the pass interface by appending `"_identity"` to function names.
 
-**Header**: `include/pypto/ir/transform/passes/identity_pass.h`
+**Header**: `include/pypto/passes/identity_pass.h`
 
 ```cpp
 namespace pypto {
@@ -87,7 +87,7 @@ class IdentityPass : public Pass {
 }  // namespace pypto
 ```
 
-**Implementation**: `src/ir/transform/passes/identity_pass.cpp`
+**Implementation**: `src/passes/identity_pass.cpp`
 
 ```cpp
 FunctionPtr IdentityPass::Run(const FunctionPtr& func) {
@@ -427,7 +427,7 @@ To add a new pass to the system:
 
 ### 1. Implement the C++ Pass
 
-Create header file in `include/pypto/ir/transform/passes/`:
+Create header file in `include/pypto/passes/`:
 
 ```cpp
 // your_pass.h
@@ -445,11 +445,11 @@ class YourPass : public Pass {
 }  // namespace pypto
 ```
 
-Create implementation in `src/ir/transform/passes/`:
+Create implementation in `src/passes/`:
 
 ```cpp
 // your_pass.cpp
-#include "pypto/ir/transform/passes/your_pass.h"
+#include "pypto/passes/your_pass.h"
 
 namespace pypto {
 namespace ir {
@@ -468,7 +468,7 @@ FunctionPtr YourPass::Run(const FunctionPtr& func) {
 Update `python/bindings/modules/pass.cpp`:
 
 ```cpp
-#include "pypto/ir/transform/passes/your_pass.h"
+#include "pypto/passes/your_pass.h"
 
 void BindPass(nb::module_& m) {
   // ... existing bindings ...

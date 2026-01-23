@@ -9,26 +9,35 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/ir/transform/passes/identity_pass.h"
+#ifndef PYPTO_PASSES_IDENTITY_PASS_H_
+#define PYPTO_PASSES_IDENTITY_PASS_H_
 
-#include <memory>
 #include <string>
 
-#include "pypto/core/logging.h"
+#include "pypto/ir/function.h"
+#include "pypto/ir/transform/base/pass.h"
 
 namespace pypto {
 namespace ir {
 
-FunctionPtr IdentityPass::Run(const FunctionPtr& func) {
-  INTERNAL_CHECK(func) << "IdentityPass cannot run on null function";
-
-  // Append "_identity" suffix to the function name to mark that this pass was applied
-  std::string new_name = func->name_ + "_identity";
-
-  // Create a new function with the modified name
-  return std::make_shared<const Function>(new_name, func->params_, func->return_types_, func->body_,
-                                          func->span_);
-}
+/**
+ * @brief Identity pass that appends a suffix to function name
+ *
+ * This pass appends "_identity" to the function name for testing purposes.
+ * This allows tests to verify that the pass was actually executed.
+ */
+class IdentityPass : public Pass {
+ public:
+  /**
+   * @brief Execute the identity pass
+   *
+   * @param func Input function
+   * @return New function with modified name
+   */
+  FunctionPtr Run(const FunctionPtr& func) override;
+};
 
 }  // namespace ir
 }  // namespace pypto
+
+#endif  // PYPTO_PASSES_IDENTITY_PASS_H_

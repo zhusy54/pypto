@@ -15,8 +15,8 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 
-#include "pypto/ir/transform/passes/identity_pass.h"
-#include "pypto/ir/transform/passes/init_memref.h"
+#include "pypto/passes/identity_pass.h"
+#include "pypto/passes/init_memref.h"
 
 namespace nb = nanobind;
 

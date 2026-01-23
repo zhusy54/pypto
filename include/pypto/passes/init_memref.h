@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_IR_TRANSFORM_PASSES_INIT_MEMREF_H_
-#define PYPTO_IR_TRANSFORM_PASSES_INIT_MEMREF_H_
+#ifndef PYPTO_PASSES_INIT_MEMREF_H_
+#define PYPTO_PASSES_INIT_MEMREF_H_
 
 #include <string>
 
@@ -46,4 +46,4 @@ class InitMemRefPass : public Pass {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORM_PASSES_INIT_MEMREF_H_
+#endif  // PYPTO_PASSES_INIT_MEMREF_H_

@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/ir/transform/passes/init_memref.h"
+#include "pypto/passes/init_memref.h"
 
 #include <memory>
 #include <set>
