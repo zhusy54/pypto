@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_PASSES_BASIC_MEMORY_REUSE_PASS_H_
-#define PYPTO_PASSES_BASIC_MEMORY_REUSE_PASS_H_
+#ifndef PYPTO_IR_TRANSFORM_BASIC_MEMORY_REUSE_PASS_H_
+#define PYPTO_IR_TRANSFORM_BASIC_MEMORY_REUSE_PASS_H_
 
 #include <map>
 #include <memory>
@@ -112,4 +112,4 @@ class BasicMemoryReusePass : public Pass {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_PASSES_BASIC_MEMORY_REUSE_PASS_H_
+#endif  // PYPTO_IR_TRANSFORM_BASIC_MEMORY_REUSE_PASS_H_

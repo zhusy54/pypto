@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/passes/basic_memory_reuse_pass.h"
+#include "pypto/ir/transform/basic_memory_reuse_pass.h"
 
 #include <algorithm>
 #include <map>

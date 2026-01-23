@@ -15,7 +15,7 @@
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 
-#include "pypto/passes/basic_memory_reuse_pass.h"
+#include "pypto/ir/transform/basic_memory_reuse_pass.h"
 #include "pypto/passes/identity_pass.h"
 #include "pypto/passes/init_memref.h"
 
