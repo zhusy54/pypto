@@ -71,9 +71,9 @@ class BasicMemoryReusePass : public Pass {
    *
    * @param blocks Basic blocks
    * @param dependencies Dependency edges
-   * @return Map of Var -> LifetimeInterval
+   * @return Vector of LifetimeIntervals (ordered by def_point)
    */
-  std::map<VarPtr, LifetimeInterval> ComputeLifetimesFromDependencies(
+  std::vector<LifetimeInterval> ComputeLifetimesFromDependencies(
       const std::vector<BasicBlock>& blocks, const std::vector<DependencyEdge>& dependencies);
 
   /**
@@ -82,10 +82,10 @@ class BasicMemoryReusePass : public Pass {
    * Greedy algorithm: for each variable, find the earliest previous variable
    * in the same memory space with non-overlapping lifetime.
    *
-   * @param lifetimes Lifetime intervals
+   * @param lifetimes Lifetime intervals (must be ordered by def_point)
    * @return Reuse map: var_new -> var_old (var_new reuses var_old's MemRef)
    */
-  std::map<VarPtr, VarPtr> IdentifyReuseOpportunities(const std::map<VarPtr, LifetimeInterval>& lifetimes);
+  std::map<VarPtr, VarPtr> IdentifyReuseOpportunities(const std::vector<LifetimeInterval>& lifetimes);
 
   /**
    * @brief Apply MemRef sharing to function body

@@ -136,7 +136,7 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
     return Span(filename, begin_line, begin_column, end_line, end_column);
   }
 
-  std::optional<std::shared_ptr<MemRef>> DeserializeMemRef(const msgpack::object& obj, msgpack::zone& zone) {
+  std::optional<MemRefPtr> DeserializeMemRef(const msgpack::object& obj, msgpack::zone& zone) {
     if (obj.is_nil()) {
       return std::nullopt;
     }
@@ -252,12 +252,12 @@ class IRDeserializer::Impl : public detail::DeserializerContext {
       return std::make_shared<ScalarType>(DataType(dtype_code));
     } else if (type_kind == "TensorType") {
       if (has_memref) {
-        std::optional<std::shared_ptr<MemRef>> memref = DeserializeMemRef(memref_obj, zone);
+        std::optional<MemRefPtr> memref = DeserializeMemRef(memref_obj, zone);
         return std::make_shared<TensorType>(shape, DataType(dtype_code), memref);
       }
       return std::make_shared<TensorType>(shape, DataType(dtype_code));
     } else if (type_kind == "TileType") {
-      std::optional<std::shared_ptr<MemRef>> memref;
+      std::optional<MemRefPtr> memref;
       std::optional<TileView> tile_view;
 
       if (has_memref) {

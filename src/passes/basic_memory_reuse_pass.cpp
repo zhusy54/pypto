@@ -68,9 +68,9 @@ FunctionPtr BasicMemoryReusePass::Run(const FunctionPtr& func) {
                                           func->span_);
 }
 
-std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDependencies(
+std::vector<LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDependencies(
     const std::vector<BasicBlock>& blocks, const std::vector<DependencyEdge>& dependencies) {
-  std::map<VarPtr, LifetimeInterval> lifetimes;
+  std::vector<LifetimeInterval> lifetimes;
 
   // Step 1: Assign topological order to all statements
   auto stmt_order = AssignTopologicalOrder(blocks, dependencies);
@@ -81,6 +81,8 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
   }
 
   // Step 2: Build maps: var -> defining stmt, var -> list of using stmts
+  // Use vectors to preserve original statement order
+  std::vector<VarPtr> ordered_vars;  // Variables in definition order
   std::map<VarPtr, StmtPtr> var_def_stmt;
   std::map<VarPtr, std::vector<StmtPtr>> var_use_stmts;
 
@@ -101,6 +103,7 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
       if (auto assign = std::dynamic_pointer_cast<const AssignStmt>(stmt)) {
         auto tile_type = std::dynamic_pointer_cast<const TileType>(assign->var_->GetType());
         if (tile_type) {
+          ordered_vars.push_back(assign->var_);  // Preserve definition order
           var_def_stmt[assign->var_] = stmt;
 
           // Collect variables used in the value expression
@@ -123,8 +126,9 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
     }
   }
 
-  // Step 3: For each TileType variable with MemRef, compute lifetime
-  for (const auto& [var, def_stmt] : var_def_stmt) {
+  // Step 3: For each TileType variable with MemRef, compute lifetime (in definition order)
+  for (const auto& var : ordered_vars) {
+    const auto& def_stmt = var_def_stmt[var];
     auto tile_type = std::dynamic_pointer_cast<const TileType>(var->GetType());
     if (!tile_type || !tile_type->memref_.has_value()) {
       continue;  // Skip variables without MemRef
@@ -153,7 +157,7 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
     interval.memory_space = memref->memory_space_;
     interval.size = memref->size_;
 
-    lifetimes[var] = interval;
+    lifetimes.push_back(interval);
 
     LOG_DEBUG << "Lifetime for " << var->name_ << ": [" << def_point << ", " << last_use << "]"
               << " space=" << static_cast<int>(interval.memory_space) << " size=" << interval.size;
@@ -163,30 +167,28 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
 }
 
 std::map<VarPtr, VarPtr> BasicMemoryReusePass::IdentifyReuseOpportunities(
-    const std::map<VarPtr, LifetimeInterval>& lifetimes) {
+    const std::vector<LifetimeInterval>& lifetimes) {
   std::map<VarPtr, VarPtr> reuse_map;
 
-  // Group variables by memory_space
-  std::map<MemorySpace, std::vector<VarPtr>> groups;
-  for (const auto& [var, lifetime] : lifetimes) {
-    groups[lifetime.memory_space].push_back(var);
+  // Group variables by memory_space (preserve order within each group)
+  std::map<MemorySpace, std::vector<size_t>> groups;  // memory_space -> indices in lifetimes
+  for (size_t i = 0; i < lifetimes.size(); i++) {
+    groups[lifetimes[i].memory_space].push_back(i);
   }
 
   // For each memory space, find reuse opportunities
-  for (auto& [space, vars] : groups) {
-    // Sort by def_point
-    std::sort(vars.begin(), vars.end(),
-              [&](VarPtr a, VarPtr b) { return lifetimes.at(a).def_point < lifetimes.at(b).def_point; });
-
+  for (auto& [space, indices] : groups) {
     // Greedy matching: for each variable, try to reuse from previous variables
-    for (size_t i = 1; i < vars.size(); i++) {
-      VarPtr curr_var = vars[i];
-      const auto& curr_lifetime = lifetimes.at(curr_var);
+    for (size_t i = 1; i < indices.size(); i++) {
+      size_t curr_idx = indices[i];
+      const auto& curr_lifetime = lifetimes[curr_idx];
+      VarPtr curr_var = curr_lifetime.variable;
 
       // Find best candidate to reuse from (earliest with sufficient size)
       for (size_t j = 0; j < i; j++) {
-        VarPtr prev_var = vars[j];
-        const auto& prev_lifetime = lifetimes.at(prev_var);
+        size_t prev_idx = indices[j];
+        const auto& prev_lifetime = lifetimes[prev_idx];
+        VarPtr prev_var = prev_lifetime.variable;
 
         // Check if lifetimes overlap
         bool overlaps = !(prev_lifetime.last_use_point < curr_lifetime.def_point ||
@@ -230,7 +232,7 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(const StmtPtr& stmt,
           return IRMutator::VisitStmt_(op);
         }
 
-        std::optional<std::shared_ptr<MemRef>> source_memref = source_tile_type->memref_;
+        std::optional<MemRefPtr> source_memref = source_tile_type->memref_;
 
         // Get current variable's TileType
         auto curr_tile_type = std::dynamic_pointer_cast<const TileType>(op->var_->GetType());
@@ -273,11 +275,11 @@ std::map<StmtPtr, int> BasicMemoryReusePass::AssignTopologicalOrder(
   std::map<StmtPtr, std::vector<StmtPtr>> successors;  // stmt -> stmts that depend on it
   std::map<StmtPtr, int> in_degree;
 
-  // Initialize all statements
-  std::set<StmtPtr> all_stmts;
+  // Collect all statements in order (for deterministic ordering)
+  std::vector<StmtPtr> all_stmts;
   for (const auto& block : blocks) {
     for (const auto& stmt : block.statements) {
-      all_stmts.insert(stmt);
+      all_stmts.push_back(stmt);
       in_degree[stmt] = 0;
     }
   }
@@ -291,7 +293,7 @@ std::map<StmtPtr, int> BasicMemoryReusePass::AssignTopologicalOrder(
   // Topological sort using Kahn's algorithm
   std::queue<StmtPtr> queue;
 
-  // Find all nodes with in-degree 0
+  // Find all nodes with in-degree 0 (preserve original order for determinism)
   for (const auto& stmt : all_stmts) {
     if (in_degree[stmt] == 0) {
       queue.push(stmt);

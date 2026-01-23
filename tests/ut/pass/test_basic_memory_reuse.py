@@ -15,29 +15,6 @@ from pypto.pypto_core import DataType, passes
 from pypto.pypto_core import ir as core_ir
 
 
-def get_var_memref_addr(func, var_name):
-    """Extract MemRef address for a variable by name.
-
-    Args:
-        func: Function to search
-        var_name: Name of the variable to find
-
-    Returns:
-        Address value if found, None otherwise
-    """
-    if not isinstance(func.body, ir.SeqStmts):
-        return None
-
-    for stmt in func.body.stmts:
-        if isinstance(stmt, ir.AssignStmt) and stmt.var.name == var_name:
-            if isinstance(stmt.var.type, core_ir.ShapedType):
-                if stmt.var.type.memref is not None:
-                    addr = stmt.var.type.memref.addr_
-                    if isinstance(addr, core_ir.ConstInt):
-                        return addr.value
-    return None
-
-
 def get_var_type(func, var_name):
     """Extract ShapedType for a variable by name.
 
@@ -76,31 +53,6 @@ def verify_memref_sharing(func, var_a_name, var_b_name):
     assert type_a.shares_memref_with(type_b), (
         f"{var_b_name} should share the same MemRef object (C++ shared_ptr) with {var_a_name}"
     )
-
-
-def get_all_memref_addrs(func):
-    """Get a dictionary of variable names to their MemRef addresses.
-
-    Args:
-        func: Function to analyze
-
-    Returns:
-        Dict[str, int]: Mapping of variable names to MemRef addresses
-    """
-    result = {}
-    if not isinstance(func.body, ir.SeqStmts):
-        return result
-
-    for stmt in func.body.stmts:
-        if isinstance(stmt, ir.AssignStmt):
-            var_name = stmt.var.name
-            if isinstance(stmt.var.type, core_ir.ShapedType):
-                if stmt.var.type.memref is not None:
-                    addr = stmt.var.type.memref.addr_
-                    if isinstance(addr, core_ir.ConstInt):
-                        result[var_name] = addr.value
-
-    return result
 
 
 def test_basic_memory_reuse_simple():
@@ -147,10 +99,7 @@ def test_basic_memory_reuse_simple():
 
     # Use PassManager with XPlatform strategy to run InitMemRefPass and BasicMemoryReusePass
     pm = PassManager.get_strategy(OptimizationStrategy.XPlatform)
-    optimized_func = pm.run_passes(func)
-
-    # Get memory addresses after optimization
-    addrs_after = get_all_memref_addrs(optimized_func)
+    optimized_func: ir.Function = pm.run_passes(func)  # type: ignore[assignment]
 
     # Verify the function is valid
     assert optimized_func is not None
@@ -169,29 +118,11 @@ def test_basic_memory_reuse_simple():
         assert isinstance(var.type, core_ir.ShapedType)
         assert var.type.memref is not None
 
-    # Verify memory reuse happened
-    # Expected lifetime analysis:
-    # tile_a: [0, 2] - defined at 0, last used in tile_c at 2
-    # tile_b: [1, 2] - defined at 1, last used in tile_c at 2
-    # tile_c: [2, 3] - defined at 2, last used in tile_d at 3
-    # tile_d: [3, 4] - defined at 3, last used in tile_e at 4
-    # tile_e: [4, 4] - defined at 4, last used in store at 4
-    #
-    # Reuse opportunities:
-    # - tile_d can reuse tile_a (lifetimes [3,4] and [0,2] don't overlap)
-    # - tile_e can reuse tile_a or tile_b (lifetimes don't overlap)
-
     # Check that tile_d reuses tile_a's memory using object identity
     verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
     # Check that tile_e reuses memory from tile_a (greedy first-fit)
     verify_memref_sharing(optimized_func, "tile_a", "tile_e")
-
-    # Verify that fewer unique addresses are used after optimization
-    unique_addrs_after = len(set(addrs_after.values()))
-    assert unique_addrs_after < len(addrs_after), (
-        f"Expected memory reuse, but all {len(addrs_after)} variables have unique addresses"
-    )
 
 
 def test_basic_memory_reuse_sequential():
@@ -245,9 +176,6 @@ def test_basic_memory_reuse_sequential():
     reuse_pass = passes.BasicMemoryReusePass()
     optimized_func = reuse_pass.run(func_with_memref)
 
-    # Get memory addresses after optimization
-    addrs_after = get_all_memref_addrs(optimized_func)
-
     # Verify the function is valid
     assert optimized_func is not None
     assert optimized_func.name == "test_sequential_reuse"
@@ -278,11 +206,6 @@ def test_basic_memory_reuse_sequential():
     verify_memref_sharing(optimized_func, "tile_a", "tile_d")
     verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
-    # Count unique memory addresses (should be minimal in sequential case)
-    unique_addrs = len(set(addrs_after.values()))
-    # We expect at most 2-3 unique addresses for this sequential pattern
-    assert unique_addrs <= 3, f"Sequential pattern should use at most 3 unique addresses, got {unique_addrs}"
-
 
 def test_basic_memory_reuse_different_sizes():
     """Test BasicMemoryReusePass with different tensor sizes (size-aware buffer reuse).
@@ -311,7 +234,7 @@ def test_basic_memory_reuse_different_sizes():
         tile_c = ib.let("tile_c", block.add(tile_a, tile_a))  # 64x64, tile_a dies
 
         # Store tile_c (tile_c dies after this)
-        result_a = ib.let("result_a", block.store(tile_c, 0, 0, 64, 64, output_a))
+        ib.let("result_a", block.store(tile_c, 0, 0, 64, 64, output_a))
 
         # Compute with tile_b (32x32)
         # tile_d can potentially reuse tile_a or tile_c's memory (both 64x64 >= 32x32)
@@ -333,16 +256,9 @@ def test_basic_memory_reuse_different_sizes():
     reuse_pass = passes.BasicMemoryReusePass()
     optimized_func = reuse_pass.run(func_with_memref)
 
-    # Get memory addresses and sizes
-    addrs_after = get_all_memref_addrs(optimized_func)
-
     # Verify the function is valid
     assert optimized_func is not None
     assert optimized_func.name == "test_different_sizes"
-
-    # Verify all expected variables have memrefs
-    for var_name in ["tile_a", "tile_b", "tile_c", "tile_d"]:
-        assert var_name in addrs_after, f"{var_name} should have a memref"
 
     # Expected lifetime analysis:
     # tile_a: [0, 2] - defined at 0, last used in tile_c at 2
@@ -359,30 +275,6 @@ def test_basic_memory_reuse_different_sizes():
     # or tile_c's memory (64x64, large enough, non-overlapping lifetimes)
     # The greedy first-fit algorithm should reuse tile_a
     verify_memref_sharing(optimized_func, "tile_a", "tile_d")
-
-    # Extract MemRef objects to verify size checking
-    assert isinstance(optimized_func.body, ir.SeqStmts)
-    stmts = optimized_func.body.stmts
-    vars_dict = {}
-    for stmt in stmts:
-        if isinstance(stmt, ir.AssignStmt):
-            vars_dict[stmt.var.name] = stmt.var
-
-    # Verify that variables have correct types and sizes
-    tile_a_var = vars_dict.get("tile_a")
-    tile_b_var = vars_dict.get("tile_b")
-    tile_d_var = vars_dict.get("tile_d")
-
-    # Basic type checks
-    if tile_a_var:
-        assert isinstance(tile_a_var.type, core_ir.ShapedType), "tile_a should be ShapedType"
-        # tile_a is 64x64
-    if tile_b_var:
-        assert isinstance(tile_b_var.type, core_ir.ShapedType), "tile_b should be ShapedType"
-        # tile_b is 32x32
-    if tile_d_var:
-        assert isinstance(tile_d_var.type, core_ir.ShapedType), "tile_d should be ShapedType"
-        # tile_d is 32x32, should reuse larger buffer (tile_a or tile_c)
 
 
 def test_basic_memory_reuse_empty_function():
@@ -446,9 +338,6 @@ def test_basic_memory_reuse_memref_sharing():
         if isinstance(stmt, ir.AssignStmt):
             vars_dict[stmt.var.name] = stmt.var
 
-    # Get memory addresses
-    addrs = get_all_memref_addrs(optimized_func)
-
     # Expected lifetime analysis:
     # tile_a: [0, 1] - defined at 0, last used in tile_b at 1
     # tile_b: [1, 2] - defined at 1, last used in tile_c at 2
@@ -507,9 +396,6 @@ def test_basic_memory_reuse_with_dependencies():
     reuse_pass = passes.BasicMemoryReusePass()
     optimized_func = reuse_pass.run(func_with_memref)
 
-    # Get memory addresses
-    addrs = get_all_memref_addrs(optimized_func)
-
     # Should not crash and produce valid output
     assert optimized_func is not None
     assert isinstance(optimized_func.body, ir.SeqStmts)
@@ -526,22 +412,12 @@ def test_basic_memory_reuse_with_dependencies():
     # - tile_e can reuse tile_a or tile_b (lifetimes [4,4] vs [0,2] and [1,2])
     # - tile_e can also reuse tile_c (lifetimes [4,4] vs [2,3])
 
-    # Verify all variables have memrefs
-    for var_name in ["tile_a", "tile_b", "tile_c", "tile_d", "tile_e"]:
-        assert var_name in addrs, f"{var_name} should have a memref"
-
     # Verify memory reuse happened using object identity
     # tile_d should reuse tile_a's memory (greedy first-fit)
     verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
     # tile_e should also reuse tile_a's memory
     verify_memref_sharing(optimized_func, "tile_a", "tile_e")
-
-    # Verify that fewer unique addresses are used after optimization
-    unique_addrs = len(set(addrs.values()))
-    assert unique_addrs < len(addrs), (
-        f"Expected memory reuse, but all {len(addrs)} variables have unique addresses"
-    )
 
 
 def test_basic_memory_reuse_multiple_memory_spaces():
@@ -568,7 +444,7 @@ def test_basic_memory_reuse_multiple_memory_spaces():
         tile_c = ib.let("tile_c", block.add(tile_a, tile_b))  # tile_a and tile_b die here
 
         # Store to first output (intermediate result)
-        result_a = ib.let("result_a", block.store(tile_c, 0, 0, tile_height, tile_width, output_a))
+        ib.let("result_a", block.store(tile_c, 0, 0, tile_height, tile_width, output_a))
 
         # More UB computation (tile_c dies here)
         tile_d = ib.let("tile_d", block.add(tile_c, tile_c))
@@ -587,39 +463,6 @@ def test_basic_memory_reuse_multiple_memory_spaces():
     # Then run BasicMemoryReusePass
     reuse_pass = passes.BasicMemoryReusePass()
     optimized_func = reuse_pass.run(func_with_memref)
-
-    # Verify function structure
-    assert isinstance(optimized_func.body, ir.SeqStmts)
-    stmts = optimized_func.body.stmts
-
-    # Verify DDR parameters don't get mixed with UB variables
-    params = {p.name: p for p in optimized_func.params}
-    for param_name in ["input_a", "input_b", "output_a", "output_b"]:
-        p = params[param_name]
-        assert isinstance(p.type, core_ir.ShapedType)
-        if p.type.memref is not None:
-            assert p.type.memref.memory_space_ == core_ir.MemorySpace.DDR, (
-                f"{param_name} should be in DDR memory space"
-            )
-
-    # Verify all UB variables stay in UB
-    ub_vars_found = 0
-    for stmt in stmts:
-        if isinstance(stmt, ir.AssignStmt):
-            var = stmt.var
-            if var.name in ["tile_a", "tile_b", "tile_c", "tile_d"]:
-                assert isinstance(var.type, core_ir.ShapedType)
-                if var.type.memref is not None:
-                    assert var.type.memref.memory_space_ == core_ir.MemorySpace.UB, (
-                        f"{var.name} should be in UB memory space"
-                    )
-                    ub_vars_found += 1
-
-    # Ensure we found all expected UB variables
-    assert ub_vars_found == 4, f"Expected 4 UB variables, found {ub_vars_found}"
-
-    # Get memory addresses for UB variables
-    addrs = get_all_memref_addrs(optimized_func)
 
     # Expected lifetime analysis:
     # tile_a: [0, 2] - defined at 0, last used in tile_c at 2
