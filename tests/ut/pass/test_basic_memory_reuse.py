@@ -10,6 +10,7 @@
 from pypto import ir
 from pypto.ir import builder
 from pypto.ir.op import block
+from pypto.ir.pass_manager import OptimizationStrategy, PassManager
 from pypto.pypto_core import DataType, passes
 from pypto.pypto_core import ir as core_ir
 
@@ -104,16 +105,9 @@ def test_basic_memory_reuse_simple():
 
     func = f.get_result()
 
-    # First run InitMemRefPass to allocate memory
-    init_pass = passes.InitMemRefPass()
-    func_with_memref = init_pass.run(func)
-
-    # Get initial memory addresses (before reuse optimization)
-    addrs_before = get_all_memref_addrs(func_with_memref)
-
-    # Then run BasicMemoryReusePass
-    reuse_pass = passes.BasicMemoryReusePass()
-    optimized_func = reuse_pass.run(func_with_memref)
+    # Use PassManager with XPlatform strategy to run InitMemRefPass and BasicMemoryReusePass
+    pm = PassManager.get_strategy(OptimizationStrategy.XPlatform)
+    optimized_func = pm.run_passes(func)
 
     # Get memory addresses after optimization
     addrs_after = get_all_memref_addrs(optimized_func)
