@@ -17,6 +17,7 @@
 
 #include "pypto/passes/identity_pass.h"
 #include "pypto/passes/init_memref.h"
+#include "pypto/passes/data_dependency_analysis_pass.h"
 
 namespace nb = nanobind;
 
@@ -41,6 +42,11 @@ void BindPass(nb::module_& m) {
   // InitMemRefPass - a pass that initializes memref for variables
   nb::class_<InitMemRefPass, Pass>(passes, "InitMemRefPass", "A pass that initializes memref for variables")
       .def(nb::init<>(), "Create an InitMemRef pass");
+
+  // DataDependencyAnalysisPass - a pass that analyzes data dependencies between block operations
+  nb::class_<DataDependencyAnalysisPass, Pass>(passes, "DataDependencyAnalysisPass",
+                                               "A pass that analyzes data dependencies between block operations")
+      .def(nb::init<>(), "Create a DataDependencyAnalysis pass");
 }
 
 }  // namespace python

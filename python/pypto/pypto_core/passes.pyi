@@ -50,4 +50,22 @@ class InitMemRefPass(Pass):
     def __init__(self) -> None:
         """Create an InitMemRef pass."""
 
-__all__ = ["Pass", "IdentityPass", "InitMemRefPass"]
+class DataDependencyAnalysisPass(Pass):
+    """A pass that analyzes data dependencies between block operations.
+
+    This pass builds a dependency graph and identifies basic blocks. It handles
+    control flow conservatively by merging dependencies from all possible paths.
+
+    The pass identifies:
+    - Read-After-Write (RAW) dependencies
+    - Write-After-Read (WAR) dependencies
+    - Write-After-Write (WAW) dependencies
+
+    It also extracts pipe types from block operations to support cross-pipe
+    synchronization analysis.
+    """
+
+    def __init__(self) -> None:
+        """Create a DataDependencyAnalysis pass."""
+
+__all__ = ["Pass", "IdentityPass", "InitMemRefPass", "DataDependencyAnalysisPass"]
