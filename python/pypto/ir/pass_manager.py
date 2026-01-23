@@ -68,7 +68,7 @@ class PassManager:
             ],
             OptimizationStrategy.XPlatform: [
                 ("InitMemRef", lambda: passes.InitMemRefPass()),
-                ("DataDependencyAnalysis", lambda: passes.DataDependencyAnalysisPass()),
+                # DataDependencyAnalysis is now a tool, not a pass - it's called within XPlatformMemoryReusePass
                 # TODO: Add these passes when they are implemented and bound
                 # ("XPlatformMemoryReuse", lambda: passes.XPlatformMemoryReusePass()),
                 # ("AllocOpInsertion", lambda: passes.AllocOpInsertionPass()),

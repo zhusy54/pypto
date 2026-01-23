@@ -105,9 +105,9 @@ set(PYPTO_SOURCES
     src/codegen/pto_codegen.cpp
     src/ir/transform/structural_hash.cpp
     src/ir/transform/structural_equal.cpp
+    src/ir/transform/dependency_analyzer.cpp
     src/passes/identity_pass.cpp
     src/passes/init_memref.cpp
-    src/passes/data_dependency_analysis_pass.cpp
     src/ir/serialization/serializer.cpp
     src/ir/serialization/deserializer.cpp
     src/ir/serialization/type_registry.cpp
