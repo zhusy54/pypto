@@ -213,6 +213,15 @@ void BindIR(nb::module_& m) {
   auto shaped_type_class =
       nb::class_<ShapedType, Type>(ir, "ShapedType", "Base class for shaped types (tensors and tiles)");
   BindFields<ShapedType>(shaped_type_class);
+  shaped_type_class.def(
+      "shares_memref_with",
+      [](const ShapedTypePtr& self, const ShapedTypePtr& other) {
+        if (!self->memref_.has_value() || !other->memref_.has_value()) {
+          return false;
+        }
+        return self->memref_.value().get() == other->memref_.value().get();
+      },
+      nb::arg("other"), "Check if this ShapedType shares the same MemRef object with another ShapedType");
 
   // TensorType - const shared_ptr
   auto tensor_type_class = nb::class_<TensorType, ShapedType>(ir, "TensorType", "Tensor type representation");
@@ -282,6 +291,7 @@ void BindIR(nb::module_& m) {
       .def_rw("memory_space_", &MemRef::memory_space_, "Memory space (DDR, UB, L1, etc.)")
       .def_rw("addr_", &MemRef::addr_, "Starting address expression")
       .def_rw("size_", &MemRef::size_, "Size in bytes (64-bit unsigned)");
+
 
   // Dynamic dimension constant
   ir.attr("DYNAMIC_DIM") = kDynamicDim;

@@ -38,15 +38,15 @@ def get_var_memref_addr(func, var_name):
     return None
 
 
-def get_var_memref(func, var_name):
-    """Extract MemRef object for a variable by name.
+def get_var_type(func, var_name):
+    """Extract ShapedType for a variable by name.
 
     Args:
         func: Function to search
         var_name: Name of the variable to find
 
     Returns:
-        MemRef object if found, None otherwise
+        ShapedType object if found, None otherwise
     """
     if not isinstance(func.body, ir.SeqStmts):
         return None
@@ -54,36 +54,27 @@ def get_var_memref(func, var_name):
     for stmt in func.body.stmts:
         if isinstance(stmt, ir.AssignStmt) and stmt.var.name == var_name:
             if isinstance(stmt.var.type, core_ir.ShapedType):
-                return stmt.var.type.memref
+                return stmt.var.type
     return None
 
 
 def verify_memref_sharing(func, var_a_name, var_b_name):
-    """Verify that two variables share the same MemRef object (not just equal values).
+    """Verify that two variables share the same MemRef object using ShapedType.shares_memref_with().
 
     Args:
         func: Function containing the variables
         var_a_name: Name of the first variable
         var_b_name: Name of the second variable
     """
-    memref_a = get_var_memref(func, var_a_name)
-    memref_b = get_var_memref(func, var_b_name)
+    type_a = get_var_type(func, var_a_name)
+    type_b = get_var_type(func, var_b_name)
 
-    assert memref_a is not None, f"{var_a_name} 应该有 memref"
-    assert memref_b is not None, f"{var_b_name} 应该有 memref"
+    assert type_a is not None, f"{var_a_name} 应该有 ShapedType"
+    assert type_b is not None, f"{var_b_name} 应该有 ShapedType"
 
-    # 验证 MemRef 对象的所有属性都相同(内存空间、地址值、大小)
-    # 这证明它们共享同一个底层 C++ MemRef 对象
-    assert memref_a.memory_space_ == memref_b.memory_space_, \
-        f"Memory spaces should match: {var_a_name}={memref_a.memory_space_} vs {var_b_name}={memref_b.memory_space_}"
-
-    assert memref_a.size_ == memref_b.size_, \
-        f"Sizes should match: {var_a_name}={memref_a.size_} vs {var_b_name}={memref_b.size_}"
-
-    # 验证地址对象是同一个(值相等)
-    if isinstance(memref_a.addr_, core_ir.ConstInt) and isinstance(memref_b.addr_, core_ir.ConstInt):
-        assert memref_a.addr_.value == memref_b.addr_.value, \
-            f"MemRef 地址应该匹配: {var_a_name}@{memref_a.addr_.value} vs {var_b_name}@{memref_b.addr_.value}"
+    # 使用 ShapedType.shares_memref_with() 方法检查是否共享同一个 MemRef
+    assert type_a.shares_memref_with(type_b), \
+        f"{var_b_name} 应该与 {var_a_name} 共享同一个 MemRef 对象 (C++ shared_ptr)"
 
 
 def get_all_memref_addrs(func):
