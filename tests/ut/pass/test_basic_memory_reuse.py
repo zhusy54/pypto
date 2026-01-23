@@ -38,6 +38,54 @@ def get_var_memref_addr(func, var_name):
     return None
 
 
+def get_var_memref(func, var_name):
+    """Extract MemRef object for a variable by name.
+
+    Args:
+        func: Function to search
+        var_name: Name of the variable to find
+
+    Returns:
+        MemRef object if found, None otherwise
+    """
+    if not isinstance(func.body, ir.SeqStmts):
+        return None
+
+    for stmt in func.body.stmts:
+        if isinstance(stmt, ir.AssignStmt) and stmt.var.name == var_name:
+            if isinstance(stmt.var.type, core_ir.ShapedType):
+                return stmt.var.type.memref
+    return None
+
+
+def verify_memref_sharing(func, var_a_name, var_b_name):
+    """Verify that two variables share the same MemRef object (not just equal values).
+
+    Args:
+        func: Function containing the variables
+        var_a_name: Name of the first variable
+        var_b_name: Name of the second variable
+    """
+    memref_a = get_var_memref(func, var_a_name)
+    memref_b = get_var_memref(func, var_b_name)
+
+    assert memref_a is not None, f"{var_a_name} 应该有 memref"
+    assert memref_b is not None, f"{var_b_name} 应该有 memref"
+
+    # 验证 MemRef 对象的所有属性都相同(内存空间、地址值、大小)
+    # 这证明它们共享同一个底层 C++ MemRef 对象
+    assert memref_a.memory_space_ == memref_b.memory_space_, \
+        f"Memory spaces should match: {var_a_name}={memref_a.memory_space_} vs {var_b_name}={memref_b.memory_space_}"
+
+    assert memref_a.size_ == memref_b.size_, \
+        f"Sizes should match: {var_a_name}={memref_a.size_} vs {var_b_name}={memref_b.size_}"
+
+    # 验证地址对象是同一个(值相等)
+    if isinstance(memref_a.addr_, core_ir.ConstInt) and isinstance(memref_b.addr_, core_ir.ConstInt):
+        assert memref_a.addr_.value == memref_b.addr_.value, \
+            f"MemRef 地址应该匹配: {var_a_name}@{memref_a.addr_.value} vs {var_b_name}@{memref_b.addr_.value}"
+
+
 def get_all_memref_addrs(func):
     """Get a dictionary of variable names to their MemRef addresses.
 
@@ -141,13 +189,11 @@ def test_basic_memory_reuse_simple():
     # - tile_d can reuse tile_a (lifetimes [3,4] and [0,2] don't overlap)
     # - tile_e can reuse tile_a or tile_b (lifetimes don't overlap)
 
-    # Check that tile_d reuses tile_a's memory
-    assert addrs_after["tile_d"] == addrs_after["tile_a"], \
-        f"tile_d should reuse tile_a's memory: tile_d@{addrs_after.get('tile_d')} vs tile_a@{addrs_after.get('tile_a')}"
+    # Check that tile_d reuses tile_a's memory using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
     # Check that tile_e reuses memory from tile_a (greedy first-fit)
-    assert addrs_after["tile_e"] == addrs_after["tile_a"], \
-        f"tile_e should reuse tile_a's memory: tile_e@{addrs_after.get('tile_e')} vs tile_a@{addrs_after.get('tile_a')}"
+    verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
     # Verify that fewer unique addresses are used after optimization
     unique_addrs_after = len(set(addrs_after.values()))
@@ -234,15 +280,10 @@ def test_basic_memory_reuse_sequential():
     # - tile_d reuses tile_a ([3,4] doesn't overlap [0,1])
     # - tile_e reuses tile_a ([4,4] doesn't overlap [0,1])
 
-    # Verify that tile_c, tile_d, and tile_e all reuse tile_a's memory
-    assert addrs_after["tile_c"] == addrs_after["tile_a"], \
-        f"tile_c should reuse tile_a's memory: tile_c@{addrs_after.get('tile_c')} vs tile_a@{addrs_after.get('tile_a')}"
-
-    assert addrs_after["tile_d"] == addrs_after["tile_a"], \
-        f"tile_d should reuse tile_a's memory: tile_d@{addrs_after.get('tile_d')} vs tile_a@{addrs_after.get('tile_a')}"
-
-    assert addrs_after["tile_e"] == addrs_after["tile_a"], \
-        f"tile_e should reuse tile_a's memory: tile_e@{addrs_after.get('tile_e')} vs tile_a@{addrs_after.get('tile_a')}"
+    # Verify that tile_c, tile_d, and tile_e all reuse tile_a's memory using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_c")
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")
+    verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
     # Count unique memory addresses (should be minimal in sequential case)
     unique_addrs = len(set(addrs_after.values()))
@@ -322,13 +363,11 @@ def test_basic_memory_reuse_different_sizes():
     # - tile_d should NOT reuse tile_b (4096 bytes) - too small ✗
     # - tile_b (4096 bytes) could theoretically reuse tile_a (16384 bytes) if lifetimes allow
 
-    # Verify that tile_d reuses tile_a's memory (same size, non-overlapping lifetimes)
-    assert addrs_after["tile_d"] == addrs_after["tile_a"], \
-        f"tile_d (64x64) should reuse tile_a (64x64) memory: tile_d@{addrs_after['tile_d']} vs tile_a@{addrs_after['tile_a']}"
+    # Verify that tile_d reuses tile_a's memory (same size, non-overlapping lifetimes) using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
-    # Verify that tile_e reuses tile_a's memory
-    assert addrs_after["tile_e"] == addrs_after["tile_a"], \
-        f"tile_e (64x64) should reuse tile_a (64x64) memory: tile_e@{addrs_after['tile_e']} vs tile_a@{addrs_after['tile_a']}"
+    # Verify that tile_e reuses tile_a's memory using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
     # Extract MemRef objects to verify size checking
     assert isinstance(optimized_func.body, ir.SeqStmts)
@@ -427,36 +466,10 @@ def test_basic_memory_reuse_memref_sharing():
     # - tile_d can reuse tile_a ([3,3] doesn't overlap [0,1])
 
     # Check that tile_c should reuse tile_a's MemRef (both are size 16384, non-overlapping lifetimes)
-    tile_a_var = vars_dict.get("tile_a")
-    tile_c_var = vars_dict.get("tile_c")
+    verify_memref_sharing(optimized_func, "tile_a", "tile_c")
 
-    assert tile_a_var is not None, "tile_a not found in optimized function"
-    assert tile_c_var is not None, "tile_c not found in optimized function"
-
-    tile_a_type = tile_a_var.type
-    tile_c_type = tile_c_var.type
-
-    assert isinstance(tile_a_type, core_ir.ShapedType), "tile_a should be ShapedType"
-    assert isinstance(tile_c_type, core_ir.ShapedType), "tile_c should be ShapedType"
-
-    assert tile_a_type.memref is not None, "tile_a should have MemRef"
-    assert tile_c_type.memref is not None, "tile_c should have MemRef"
-
-    # Verify memory space is the same
-    assert tile_a_type.memref.memory_space_ == tile_c_type.memref.memory_space_, \
-        "tile_a and tile_c should be in same memory space"
-
-    # Verify size is the same
-    assert tile_a_type.memref.size_ == tile_c_type.memref.size_, \
-        "tile_a and tile_c should have same size"
-
-    # Verify addresses are the same (actual reuse check)
-    assert addrs["tile_c"] == addrs["tile_a"], \
-        f"tile_c should reuse tile_a's memory address: tile_c@{addrs['tile_c']} vs tile_a@{addrs['tile_a']}"
-
-    # Also check tile_d reuses tile_a
-    assert addrs["tile_d"] == addrs["tile_a"], \
-        f"tile_d should reuse tile_a's memory address: tile_d@{addrs['tile_d']} vs tile_a@{addrs['tile_a']}"
+    # Also check tile_d reuses tile_a using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
 
 def test_basic_memory_reuse_with_dependencies():
@@ -523,14 +536,12 @@ def test_basic_memory_reuse_with_dependencies():
     for var_name in ["tile_a", "tile_b", "tile_c", "tile_d", "tile_e"]:
         assert var_name in addrs, f"{var_name} should have a memref"
 
-    # Verify memory reuse happened
+    # Verify memory reuse happened using object identity
     # tile_d should reuse tile_a's memory (greedy first-fit)
-    assert addrs["tile_d"] == addrs["tile_a"], \
-        f"tile_d should reuse tile_a's memory: tile_d@{addrs['tile_d']} vs tile_a@{addrs['tile_a']}"
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")
 
     # tile_e should also reuse tile_a's memory
-    assert addrs["tile_e"] == addrs["tile_a"], \
-        f"tile_e should reuse tile_a's memory: tile_e@{addrs['tile_e']} vs tile_a@{addrs['tile_a']}"
+    verify_memref_sharing(optimized_func, "tile_a", "tile_e")
 
     # Verify that fewer unique addresses are used after optimization
     unique_addrs = len(set(addrs.values()))
@@ -622,6 +633,5 @@ def test_basic_memory_reuse_multiple_memory_spaces():
     # All are in UB memory space, reuse should happen within UB:
     # - tile_d should reuse tile_a or tile_b's memory (non-overlapping lifetimes)
 
-    # Verify that tile_d reuses UB memory from tile_a
-    assert addrs["tile_d"] == addrs["tile_a"], \
-        f"tile_d should reuse tile_a's UB memory: tile_d@{addrs['tile_d']} vs tile_a@{addrs['tile_a']}"
+    # Verify that tile_d reuses UB memory from tile_a using object identity
+    verify_memref_sharing(optimized_func, "tile_a", "tile_d")

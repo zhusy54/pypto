@@ -133,7 +133,7 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
       continue;  // Skip variables without MemRef
     }
 
-    const MemRef& memref = *tile_type->memref_;
+    const auto& memref = tile_type->memref_.value();
 
     // Def point
     int def_point = stmt_order[def_stmt];
@@ -153,8 +153,8 @@ std::map<VarPtr, LifetimeInterval> BasicMemoryReusePass::ComputeLifetimesFromDep
     interval.variable = var;
     interval.def_point = def_point;
     interval.last_use_point = last_use;
-    interval.memory_space = memref.memory_space_;
-    interval.size = memref.size_;
+    interval.memory_space = memref->memory_space_;
+    interval.size = memref->size_;
 
     lifetimes[var] = interval;
 
@@ -239,7 +239,7 @@ StmtPtr BasicMemoryReusePass::ApplyMemRefSharing(
           return IRMutator::VisitStmt_(op);
         }
 
-        std::optional<MemRef> source_memref = source_tile_type->memref_;
+        std::optional<std::shared_ptr<MemRef>> source_memref = source_tile_type->memref_;
 
         // Get current variable's TileType
         auto curr_tile_type =
