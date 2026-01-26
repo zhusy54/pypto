@@ -37,6 +37,24 @@ class MemRefUsageVisitor : public IRVisitor {
  public:
   const std::set<std::string>& GetDdrVars() const { return ddr_vars_; }
 
+  void VisitStmt_(const AssignStmtPtr& op) {
+    // Check if the right-hand side is a block.store call
+    if (auto call = std::dynamic_pointer_cast<const Call>(op->value_)) {
+      if (call->op_->name_ == "block.store") {
+        // block.store returns the output_tensor (6th argument)
+        // So the variable receiving the return value should also be DDR
+        ddr_vars_.insert(op->var_->name_);
+      }
+    }
+    // Continue with default traversal
+    if (op->var_) {
+      VisitExpr(op->var_);
+    }
+    if (op->value_) {
+      VisitExpr(op->value_);
+    }
+  }
+
   void VisitExpr_(const CallPtr& op) override {
     if (op->op_->name_ == "block.load") {
       // block.load(tensor, ...) -> tensor is source (DDR)
@@ -140,6 +158,47 @@ class InitMemRefMutator : public IRMutator {
   ExprPtr VisitExpr_(const VarPtr& op) override { return GetNewVar(op); }
 
   ExprPtr VisitExpr_(const IterArgPtr& op) override { return GetNewVar(op); }
+
+  // Handle block.store specially: return value should share the same MemRef as the 6th argument
+  StmtPtr VisitStmt_(const AssignStmtPtr& op) {
+    // First visit the value (RHS)
+    auto new_value = VisitExpr(op->value_);
+
+    // Check if the RHS is a block.store call
+    if (auto call = std::dynamic_pointer_cast<const Call>(op->value_)) {
+      if (call->op_->name_ == "block.store" && call->args_.size() > 5) {
+        // Get the 6th argument (output tensor) after mutation
+        auto new_call = std::dynamic_pointer_cast<const Call>(new_value);
+        if (new_call && new_call->args_.size() > 5) {
+          auto output_tensor_arg = new_call->args_[5];
+
+          // Extract MemRef from the output tensor
+          std::optional<MemRefPtr> shared_memref = std::nullopt;
+          if (auto tensor_type = std::dynamic_pointer_cast<const TensorType>(output_tensor_arg->GetType())) {
+            shared_memref = tensor_type->memref_;
+          }
+
+          // Create new variable with the shared MemRef
+          if (shared_memref.has_value()) {
+            TypePtr new_type = op->var_->GetType();
+            if (auto var_tensor_type = std::dynamic_pointer_cast<const TensorType>(op->var_->GetType())) {
+              // Reuse the MemRef from the 6th argument
+              new_type = std::make_shared<TensorType>(var_tensor_type->shape_, var_tensor_type->dtype_, shared_memref);
+            }
+
+            VarPtr new_var = std::make_shared<Var>(op->var_->name_, new_type, op->var_->span_);
+            var_map_[op->var_->name_] = new_var;
+
+            return std::make_shared<AssignStmt>(new_var, new_value, op->span_);
+          }
+        }
+      }
+    }
+
+    // Default case: visit the variable normally
+    auto new_var = GetNewVar(op->var_);
+    return std::make_shared<AssignStmt>(new_var, new_value, op->span_);
+  }
 
  private:
   const std::set<std::string>& ddr_vars_;
