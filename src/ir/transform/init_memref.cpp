@@ -35,6 +35,13 @@ namespace {
 // Visitor to identify variables that should be in DDR memory space
 class MemRefUsageVisitor : public IRVisitor {
  public:
+  // Initialize visitor with function parameters (all params should be in DDR)
+  explicit MemRefUsageVisitor(const std::vector<VarPtr>& params) {
+    for (const auto& param : params) {
+      ddr_vars_.insert(param->name_);
+    }
+  }
+
   const std::set<std::string>& GetDdrVars() const { return ddr_vars_; }
 
   void VisitStmt_(const AssignStmtPtr& op) {
@@ -129,25 +136,38 @@ class InitMemRefMutator : public IRMutator {
       return it->second;
     }
 
-    // Create new var
-    TypePtr new_type = old_var->GetType();
-
-    // Process Type if it is ShapedType (TensorType or TileType)
-    if (auto tensor_type = As<TensorType>(old_var->GetType())) {
-      auto memref = CreateMemRef(tensor_type, old_var->name_);
-      new_type = std::make_shared<TensorType>(tensor_type->shape_, tensor_type->dtype_, memref);
-    } else if (auto tile_type = As<TileType>(old_var->GetType())) {
-      auto memref = CreateMemRef(tile_type, old_var->name_);
-      new_type =
-          std::make_shared<TileType>(tile_type->shape_, tile_type->dtype_, memref, tile_type->tile_view_);
-    }
-
+    // Special handling for IterArg: should inherit MemRef from initValue
     VarPtr new_var;
     if (auto iter_arg = As<IterArg>(std::static_pointer_cast<const IRNode>(old_var))) {
-      // For IterArg, we also need to visit the initValue
+      // First visit the initValue to get its updated MemRef
       auto new_init = VisitExpr(iter_arg->initValue_);
+
+      // Extract MemRef from the initValue's type
+      TypePtr new_type = old_var->GetType();
+      if (auto init_tensor_type = As<TensorType>(new_init->GetType())) {
+        // IterArg inherits the MemRef from its initValue
+        new_type = std::make_shared<TensorType>(init_tensor_type->shape_, init_tensor_type->dtype_,
+                                                init_tensor_type->memref_);
+      } else if (auto init_tile_type = As<TileType>(new_init->GetType())) {
+        new_type = std::make_shared<TileType>(init_tile_type->shape_, init_tile_type->dtype_,
+                                              init_tile_type->memref_, init_tile_type->tile_view_);
+      }
+
       new_var = std::make_shared<IterArg>(iter_arg->name_, new_type, new_init, iter_arg->span_);
     } else {
+      // Normal Var: create new MemRef based on usage analysis
+      TypePtr new_type = old_var->GetType();
+
+      // Process Type if it is ShapedType (TensorType or TileType)
+      if (auto tensor_type = As<TensorType>(old_var->GetType())) {
+        auto memref = CreateMemRef(tensor_type, old_var->name_);
+        new_type = std::make_shared<TensorType>(tensor_type->shape_, tensor_type->dtype_, memref);
+      } else if (auto tile_type = As<TileType>(old_var->GetType())) {
+        auto memref = CreateMemRef(tile_type, old_var->name_);
+        new_type =
+            std::make_shared<TileType>(tile_type->shape_, tile_type->dtype_, memref, tile_type->tile_view_);
+      }
+
       new_var = std::make_shared<Var>(old_var->name_, new_type, old_var->span_);
     }
 
@@ -183,7 +203,8 @@ class InitMemRefMutator : public IRMutator {
             TypePtr new_type = op->var_->GetType();
             if (auto var_tensor_type = std::dynamic_pointer_cast<const TensorType>(op->var_->GetType())) {
               // Reuse the MemRef from the 6th argument
-              new_type = std::make_shared<TensorType>(var_tensor_type->shape_, var_tensor_type->dtype_, shared_memref);
+              new_type = std::make_shared<TensorType>(var_tensor_type->shape_, var_tensor_type->dtype_,
+                                                      shared_memref);
             }
 
             VarPtr new_var = std::make_shared<Var>(op->var_->name_, new_type, op->var_->span_);
@@ -210,7 +231,8 @@ class InitMemRefMutator : public IRMutator {
 
 FunctionPtr InitMemRefPass::Run(const FunctionPtr& func) {
   // Step 1: Analyze usage to find DDR variables
-  MemRefUsageVisitor visitor;
+  // All function parameters should be in DDR (main memory)
+  MemRefUsageVisitor visitor(func->params_);
   visitor.VisitStmt(func->body_);
 
   // Step 2: Mutate variables
