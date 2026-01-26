@@ -36,8 +36,10 @@ class DeclarationCollector : public IRVisitor {
  public:
   DeclarationCollector(std::map<std::string, TileInfo>& tile_decls,
                        std::vector<std::pair<std::string, DataType>>& scalar_decls,
-                       std::map<std::string, std::string>& var_to_physical_tile)
-      : tile_decls_(tile_decls), scalar_decls_(scalar_decls), var_to_physical_tile_(var_to_physical_tile) {}
+                       std::map<std::string, std::string>& var_to_physical_tile,
+                       std::map<uint64_t, std::string>& memref_to_var)
+      : tile_decls_(tile_decls), scalar_decls_(scalar_decls), var_to_physical_tile_(var_to_physical_tile),
+        memref_to_var_(memref_to_var) {}
 
  protected:
   void VisitStmt_(const AssignStmtPtr& op) override {
@@ -88,6 +90,20 @@ class DeclarationCollector : public IRVisitor {
         var_to_physical_tile_[op->var_->name_] = op->var_->name_;  // Maps to itself
       }
     }
+    
+    // Also check TensorType for MemRef mapping (for function params and loop results)
+    if (auto tensor_type = As<TensorType>(op->var_->GetType())) {
+      if (tensor_type->memref_.has_value()) {
+        const auto& memref = tensor_type->memref_.value();
+        uint64_t memref_id = memref->id_;
+        
+        // Only record the first variable with this MemRef ID in memref_to_var_
+        // This ensures we always map back to the original variable (usually function parameter)
+        if (!memref_to_var_.count(memref_id)) {
+          memref_to_var_[memref_id] = op->var_->name_;
+        }
+      }
+    }
 
     // Check if this variable has ScalarType
     if (auto scalar_type = As<ScalarType>(op->var_->GetType())) {
@@ -118,6 +134,7 @@ class DeclarationCollector : public IRVisitor {
   std::map<std::string, TileInfo>& tile_decls_;
   std::vector<std::pair<std::string, DataType>>& scalar_decls_;
   std::map<std::string, std::string>& var_to_physical_tile_;
+  std::map<uint64_t, std::string>& memref_to_var_;           // MemRef ID -> original var name (shared)
   std::map<uint64_t, std::string> memref_to_physical_tile_;  // MemRef ID -> first physical tile name
 };
 
@@ -128,6 +145,7 @@ std::string PTOCodegen::Generate(const ProgramPtr& program) {
   code_lines_.clear();
   tile_decls_.clear();
   var_to_physical_tile_.clear();
+  memref_to_var_.clear();
   indent_level_ = 0;
   current_function_name_.clear();
 
@@ -156,11 +174,23 @@ std::string PTOCodegen::GenerateFunction(const FunctionPtr& func) {
   tile_decls_.clear();
   scalar_decls_.clear();
   var_to_physical_tile_.clear();  // Clear variable mapping
+  memref_to_var_.clear();         // Clear MemRef mapping
   indent_level_ = 0;
   current_function_name_ = func->name_;
 
+  // First, collect MemRef information from function parameters
+  // This allows us to map IterArg types to their original parameter names
+  for (const auto& param : func->params_) {
+    if (auto tensor_type = As<TensorType>(param->GetType())) {
+      if (tensor_type->memref_.has_value()) {
+        const auto& memref = tensor_type->memref_.value();
+        memref_to_var_[memref->id_] = param->name_;
+      }
+    }
+  }
+
   // Collect tile and scalar declarations from function body in one pass
-  DeclarationCollector collector(tile_decls_, scalar_decls_, var_to_physical_tile_);
+  DeclarationCollector collector(tile_decls_, scalar_decls_, var_to_physical_tile_, memref_to_var_);
   collector.VisitStmt(func->body_);
 
   // Generate function signature: func @name(%param: type, ...) {
@@ -274,8 +304,42 @@ std::string PTOCodegen::OpToPTOInstruction(const CallPtr& op, const std::string&
     std::string arg_str = ExtractVarName(arg);
     // Add % prefix only for variables, not for constants
     if (auto var = As<Var>(arg)) {
-      // Resolve to physical tile name for tile variables
-      std::string physical_name = ResolvePhysicalTile(arg_str);
+      // First try to resolve via MemRef ID (for variables sharing MemRef with function parameters)
+      std::string resolved_name = arg_str;
+      if (auto tensor_type = As<TensorType>(var->GetType())) {
+        if (tensor_type->memref_.has_value()) {
+          const auto& memref = tensor_type->memref_.value();
+          uint64_t memref_id = memref->id_;
+          
+          // Look up the original variable name from MemRef ID
+          if (memref_to_var_.count(memref_id)) {
+            resolved_name = memref_to_var_[memref_id];
+          }
+        }
+      }
+      
+      // Then resolve to physical tile name for tile variables
+      std::string physical_name = ResolvePhysicalTile(resolved_name);
+      args.push_back("%" + physical_name);
+    } else if (auto iter_arg = As<IterArg>(arg)) {
+      // IterArg is a subclass of Var, but has its own kind
+      // For IterArg, we need to resolve to the original tensor parameter using MemRef ID
+      std::string original_name = arg_str;
+      
+      // Try to find the original variable name via MemRef ID
+      if (auto tensor_type = As<TensorType>(iter_arg->GetType())) {
+        if (tensor_type->memref_.has_value()) {
+          const auto& memref = tensor_type->memref_.value();
+          uint64_t memref_id = memref->id_;
+          
+          // Look up the original variable name from MemRef ID
+          if (memref_to_var_.count(memref_id)) {
+            original_name = memref_to_var_[memref_id];
+          }
+        }
+      }
+      
+      std::string physical_name = ResolvePhysicalTile(original_name);
       args.push_back("%" + physical_name);
     } else if (auto const_int = As<ConstInt>(arg)) {
       args.push_back(arg_str);  // No % prefix for constants
@@ -369,6 +433,9 @@ std::string PTOCodegen::OpToPTOInstruction(const CallPtr& op, const std::string&
 std::string PTOCodegen::ExtractVarName(const ExprPtr& expr) {
   if (auto var = As<Var>(expr)) {
     return var->name_;
+  } else if (auto iter_arg = As<IterArg>(expr)) {
+    // IterArg is a subclass of Var with its own kind, handle it separately
+    return iter_arg->name_;
   } else if (auto const_int = As<ConstInt>(expr)) {
     // Return string representation of integer constant
     return std::to_string(const_int->value_);

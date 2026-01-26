@@ -230,6 +230,7 @@ class PTOCodegen : public IRMutator {
   std::map<std::string, TileInfo> tile_decls_;                  // Tile declarations (name -> info)
   std::vector<std::pair<std::string, DataType>> scalar_decls_;  // Scalar declarations (ordered)
   std::map<std::string, std::string> var_to_physical_tile_;     // Logical var name -> physical tile name
+  std::map<uint64_t, std::string> memref_to_var_;               // MemRef ID -> variable name (for params)
   int indent_level_ = 0;                                        // Current indentation level
   std::string current_function_name_;                           // Current function being generated
 };
