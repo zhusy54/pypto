@@ -159,6 +159,18 @@ TypePtr DeduceBlockMoveType(const std::vector<ExprPtr>& args,
   return std::make_shared<TileType>(output_shape, tile_type->dtype_);
 }
 
+TypePtr DeduceBlockAllocType(const std::vector<ExprPtr>& args,
+                             const std::vector<std::pair<std::string, std::any>>& kwargs,
+                             const std::string& op_name) {
+  // alloc signature: (memref_id)
+  // Takes a MemRef ID as argument and returns a pointer (INT64 scalar)
+  CHECK(args.size() == 1) << "The operator " << op_name << " requires exactly 1 argument, but got "
+                          << args.size();
+
+  // Return INT64 for the allocated pointer address
+  return std::make_shared<ScalarType>(DataType::INT64);
+}
+
 // ============================================================================
 // Registration Function for Block Memory Operations
 // ============================================================================
@@ -212,6 +224,16 @@ REGISTER_OP("block.move")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockMoveType(args, kwargs, "block.move");
+    });
+
+REGISTER_OP("block.alloc")
+    .set_op_category("BlockOp")
+    .set_description("Allocate memory for a MemRef object")
+    .set_pipe(PipeType::V)
+    .add_argument("memref_id", "MemRef ID (scalar)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockAllocType(args, kwargs, "block.alloc");
     });
 
 }  // namespace ir
