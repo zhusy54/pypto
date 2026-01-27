@@ -421,7 +421,7 @@ class IRBuilder:
         """
         actual_span = span if span is not None else self._capture_call_span()
         addr_expr = _normalize_expr(addr, actual_span)
-        return ir.MemRef(memory_space, addr_expr, size, id)
+        return ir.MemRef(memory_space, addr_expr, size, id, actual_span)
 
     def tile_view(
         self,

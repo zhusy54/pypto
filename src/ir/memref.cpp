@@ -12,9 +12,21 @@
 #include "pypto/ir/memref.h"
 
 #include <string>
+#include <utility>
+
+#include "pypto/ir/expr.h"
+#include "pypto/ir/type.h"
 
 namespace pypto {
 namespace ir {
+
+// MemRef implementation
+MemRef::MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id, Span span)
+    : Var("mem_" + std::to_string(id), GetMemRefType(), std::move(span)),
+      memory_space_(memory_space),
+      addr_(std::move(addr)),
+      size_(size),
+      id_(id) {}
 
 std::string MemorySpaceToString(MemorySpace space) {
   switch (space) {

@@ -607,7 +607,7 @@ class TestPythonSyntaxPrinting:
     """Tests for Python syntax printing with MemRef and TileView."""
 
     def test_tensor_type_with_memref_print(self):
-        """Test printing TensorType with MemRef."""
+        """Test printing TensorType with MemRef variable name."""
         span = ir.Span.unknown()
         shape = [ir.ConstInt(64, DataType.INT64, span), ir.ConstInt(128, DataType.INT64, span)]
         addr = ir.ConstInt(0x1000, DataType.INT64, span)
@@ -619,15 +619,19 @@ class TestPythonSyntaxPrinting:
         assert "pl.Tensor" in printed
         assert "pl.FP32" in printed
         assert "memref=" in printed
+        # MemRef prints as full constructor syntax: pl.MemRef(pl.MemorySpace.DDR, addr, size, id)
         assert "pl.MemRef" in printed
         assert "pl.MemorySpace.DDR" in printed
+        assert "4096" in printed  # 0x1000 in decimal
+        assert "1024" in printed  # size
+        assert "7" in printed  # id
 
     def test_tile_type_with_memref_and_tileview_print(self):
-        """Test printing TileType with MemRef and TileView."""
+        """Test printing TileType with MemRef variable name and TileView."""
         span = ir.Span.unknown()
         shape = [ir.ConstInt(16, DataType.INT64, span), ir.ConstInt(16, DataType.INT64, span)]
 
-        addr = ir.ConstInt(0, DataType.INT64, span)
+        addr = ir.ConstInt(0x2000, DataType.INT64, span)
         memref = ir.MemRef(ir.MemorySpace.L0A, addr, 512, 8)
 
         valid_shape = [ir.ConstInt(16, DataType.INT64, span), ir.ConstInt(16, DataType.INT64, span)]
@@ -641,8 +645,8 @@ class TestPythonSyntaxPrinting:
         assert "pl.Tile" in printed
         assert "pl.FP16" in printed
         assert "memref=" in printed
-        assert "pl.MemRef" in printed
-        assert "pl.MemorySpace.L0A" in printed
+        # MemRef with name "mem_8" prints as variable reference
+        assert "mem_8" in printed
         assert "tile_view=" in printed
         assert "pl.TileView" in printed
         assert "valid_shape=" in printed
@@ -650,7 +654,7 @@ class TestPythonSyntaxPrinting:
         assert "start_offset=" in printed
 
     def test_memref_print_with_symbolic_addr(self):
-        """Test printing MemRef with symbolic address."""
+        """Test printing MemRef with symbolic address as variable name."""
         span = ir.Span.unknown()
         base = ir.Var("base_addr", ir.ScalarType(DataType.INT64), span)
         offset = ir.ConstInt(128, DataType.INT64, span)
@@ -662,9 +666,12 @@ class TestPythonSyntaxPrinting:
         tensor_type = ir.TensorType(shape, DataType.INT32, memref)
         printed = ir.python_print(tensor_type)
 
-        assert "base_addr" in printed
-        assert "128" in printed
+        # MemRef prints as full constructor syntax with symbolic address
+        assert "pl.MemRef" in printed
         assert "pl.MemorySpace.UB" in printed
+        assert "base_addr + 128" in printed  # symbolic address expression
+        assert "2048" in printed  # size
+        assert "9" in printed  # id
 
 
 class TestIRBuilderHelpers:
@@ -761,8 +768,8 @@ class TestIRBuilderHelpers:
         assert "pl.Tile" in printed
         assert "pl.Tile[[32, 32], pl.FP32," in printed
         assert "pl.FP32" in printed
-        assert "memref=pl.MemRef" in printed
-        assert "pl.MemorySpace.L0B" in printed
+        # MemRef with name "mem_36" prints as variable reference
+        assert "memref=mem_36" in printed
         assert "tile_view=pl.TileView" in printed
 
 

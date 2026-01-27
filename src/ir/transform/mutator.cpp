@@ -53,6 +53,11 @@ ExprPtr IRMutator::VisitExpr_(const IterArgPtr& op) {
   }
 }
 
+ExprPtr IRMutator::VisitExpr_(const MemRefPtr& op) {
+  // MemRef is immutable, return original
+  return op;
+}
+
 ExprPtr IRMutator::VisitExpr_(const ConstIntPtr& op) {
   // ConstInt is immutable, return original
   return op;

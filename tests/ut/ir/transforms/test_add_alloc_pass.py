@@ -12,7 +12,6 @@ from pypto.ir import builder
 from pypto.ir.op import block
 from pypto.ir.pass_manager import OptimizationStrategy, PassManager
 from pypto.pypto_core import DataType, passes
-from pypto.pypto_core import ir as core_ir
 
 
 def count_alloc_operations(func):
@@ -122,12 +121,10 @@ def test_add_alloc_pass_multiple_tiles():
         tile_height = 64
         tile_width = 64
 
-        # Load two tiles
-        tile_a = ib.let("tile_a", block.load(input_a, 0, 0, tile_height, tile_width))
+        # Load tile
         tile_b = ib.let("tile_b", block.load(input_a, 0, 0, tile_height, tile_width))
 
         # Compute
-        tile_c = ib.let("tile_c", block.add(tile_a, tile_a))
         tile_d = ib.let("tile_d", block.add(tile_b, tile_b))
 
         # Store
@@ -152,7 +149,7 @@ def test_add_alloc_pass_multiple_tiles():
     # Verify alloc operations are at the beginning
     alloc_indices = get_alloc_statement_indices(optimized_func)
     for i, idx in enumerate(alloc_indices):
-        assert idx == i, f"All alloc operations should be at the beginning"
+        assert idx == i, "All alloc operations should be at the beginning"
 
 
 def test_add_alloc_pass_with_xplatform_strategy():
@@ -182,7 +179,9 @@ def test_add_alloc_pass_with_xplatform_strategy():
 
     # Run XPlatform strategy (which includes AddAllocPass)
     pm = PassManager.get_strategy(OptimizationStrategy.XPlatform)
-    optimized_func = pm.run_passes(func)
+    optimized_result = pm.run_passes(func)
+    assert isinstance(optimized_result, ir.Function), "Result should be a Function"
+    optimized_func = optimized_result
 
     # Verify alloc operations were added
     alloc_count = count_alloc_operations(optimized_func)
@@ -223,7 +222,9 @@ def test_add_alloc_pass_with_memory_reuse():
 
     # Run XPlatform strategy
     pm = PassManager.get_strategy(OptimizationStrategy.XPlatform)
-    optimized_func = pm.run_passes(func)
+    optimized_result = pm.run_passes(func)
+    assert isinstance(optimized_result, ir.Function), "Result should be a Function"
+    optimized_func = optimized_result
 
     # Verify alloc operations were added
     alloc_count = count_alloc_operations(optimized_func)
@@ -245,7 +246,9 @@ def test_add_alloc_pass_with_memory_reuse():
                     break
 
         if first_non_alloc_idx is not None:
-            assert last_alloc_idx < first_non_alloc_idx, "All alloc operations should come before other operations"
+            assert last_alloc_idx < first_non_alloc_idx, (
+                "All alloc operations should come before other operations"
+            )
 
 
 def test_add_alloc_pass_empty_function():
@@ -325,7 +328,8 @@ def test_add_alloc_pass_alloc_placement():
 
     # Verify the original operation order is preserved
     tile_a_found = False
-    tile_b_found = False
+    tile_a_idx = None
+    tile_b_idx = None
     for i, stmt in enumerate(stmts):
         if isinstance(stmt, ir.AssignStmt):
             if stmt.var.name == "tile_a":
@@ -333,7 +337,7 @@ def test_add_alloc_pass_alloc_placement():
                 tile_a_idx = i
             elif stmt.var.name == "tile_b":
                 assert tile_a_found, "tile_b should come after tile_a"
-                tile_b_found = True
+                assert tile_a_idx is not None, "tile_a_idx should be set"
                 tile_b_idx = i
                 assert tile_a_idx < tile_b_idx, "Operations order should be preserved"
 
@@ -353,9 +357,7 @@ def test_add_alloc_pass_raw_pointer_uniqueness():
         f.return_type(ir.TensorType([64, 64], DataType.FP32))
 
         # Create multiple tiles with different MemRef objects
-        tile_a = ib.let("tile_a", block.load(input_a, 0, 0, 64, 64))
         tile_b = ib.let("tile_b", block.load(input_a, 0, 0, 64, 64))
-        tile_c = ib.let("tile_c", block.add(tile_a, tile_a))
         tile_d = ib.let("tile_d", block.add(tile_b, tile_b))
 
         result = ib.let("result", block.store(tile_d, 0, 0, 64, 64, output))
@@ -384,4 +386,4 @@ def test_add_alloc_pass_raw_pointer_uniqueness():
     assert len(alloc_indices) == alloc_count, "All alloc operations should be identified"
 
     for i, idx in enumerate(alloc_indices):
-        assert idx == i, f"Alloc operations should be consecutive at the beginning"
+        assert idx == i, "Alloc operations should be consecutive at the beginning"
