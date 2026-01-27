@@ -92,8 +92,7 @@ ExprPtr IRMutator::VisitExpr_(const CallPtr& op) {
   // Copy-on-write: only create new node if arguments changed
   if (changed) {
     // Preserve original type and kwargs when reconstructing the Call node
-    return std::make_shared<const Call>(op->op_, std::move(new_args), op->kwargs_, 
-                                       op->GetType(), op->span_);
+    return std::make_shared<const Call>(op->op_, std::move(new_args), op->kwargs_, op->GetType(), op->span_);
   } else {
     return op;
   }
