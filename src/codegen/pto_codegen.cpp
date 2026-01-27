@@ -35,8 +35,9 @@ namespace {
 class DeclarationCollector : public IRVisitor {
  public:
   DeclarationCollector(std::map<std::string, TileInfo>& tile_decls,
-                       std::vector<std::pair<std::string, DataType>>& scalar_decls)
-      : tile_decls_(tile_decls), scalar_decls_(scalar_decls) {}
+                       std::vector<std::pair<std::string, DataType>>& scalar_decls,
+                       std::map<std::string, std::string>& var_to_physical_tile)
+      : tile_decls_(tile_decls), scalar_decls_(scalar_decls), var_to_physical_tile_(var_to_physical_tile) {}
 
  protected:
   void VisitStmt_(const AssignStmtPtr& op) override {
@@ -64,7 +65,28 @@ class DeclarationCollector : public IRVisitor {
       }
 
       info.dtype = tile_type->dtype_;
-      tile_decls_[info.name] = info;
+
+      // Check if this TileType has a MemRef
+      if (tile_type->memref_.has_value()) {
+        const auto& memref = tile_type->memref_.value();
+        uint64_t memref_id = memref->id_;
+
+        // Check if we've already seen this MemRef ID
+        if (memref_to_physical_tile_.count(memref_id)) {
+          // Reuse existing physical tile name
+          std::string physical_tile = memref_to_physical_tile_[memref_id];
+          var_to_physical_tile_[op->var_->name_] = physical_tile;
+        } else {
+          // First time seeing this MemRef ID - create new tile declaration
+          tile_decls_[info.name] = info;
+          memref_to_physical_tile_[memref_id] = op->var_->name_;
+          var_to_physical_tile_[op->var_->name_] = op->var_->name_;  // Maps to itself
+        }
+      } else {
+        // No MemRef - generate independent tile declaration
+        tile_decls_[info.name] = info;
+        var_to_physical_tile_[op->var_->name_] = op->var_->name_;  // Maps to itself
+      }
     }
 
     // Check if this variable has ScalarType
@@ -95,6 +117,8 @@ class DeclarationCollector : public IRVisitor {
  private:
   std::map<std::string, TileInfo>& tile_decls_;
   std::vector<std::pair<std::string, DataType>>& scalar_decls_;
+  std::map<std::string, std::string>& var_to_physical_tile_;
+  std::map<uint64_t, std::string> memref_to_physical_tile_;  // MemRef ID -> first physical tile name
 };
 
 }  // namespace
@@ -103,6 +127,7 @@ std::string PTOCodegen::Generate(const ProgramPtr& program) {
   // Clear state
   code_lines_.clear();
   tile_decls_.clear();
+  var_to_physical_tile_.clear();
   indent_level_ = 0;
   current_function_name_.clear();
 
@@ -130,11 +155,12 @@ std::string PTOCodegen::GenerateFunction(const FunctionPtr& func) {
   code_lines_.clear();
   tile_decls_.clear();
   scalar_decls_.clear();
+  var_to_physical_tile_.clear();  // Clear variable mapping
   indent_level_ = 0;
   current_function_name_ = func->name_;
 
   // Collect tile and scalar declarations from function body in one pass
-  DeclarationCollector collector(tile_decls_, scalar_decls_);
+  DeclarationCollector collector(tile_decls_, scalar_decls_, var_to_physical_tile_);
   collector.VisitStmt(func->body_);
 
   // Generate function signature: func @name(%param: type, ...) {
@@ -248,7 +274,9 @@ std::string PTOCodegen::OpToPTOInstruction(const CallPtr& op, const std::string&
     std::string arg_str = ExtractVarName(arg);
     // Add % prefix only for variables, not for constants
     if (auto var = As<Var>(arg)) {
-      args.push_back("%" + arg_str);
+      // Resolve to physical tile name for tile variables
+      std::string physical_name = ResolvePhysicalTile(arg_str);
+      args.push_back("%" + physical_name);
     } else if (auto const_int = As<ConstInt>(arg)) {
       args.push_back(arg_str);  // No % prefix for constants
     } else if (auto const_float = As<ConstFloat>(arg)) {
@@ -353,6 +381,15 @@ std::string PTOCodegen::ExtractVarName(const ExprPtr& expr) {
   }
 }
 
+std::string PTOCodegen::ResolvePhysicalTile(const std::string& var_name) {
+  // Check if this variable has a mapping to a physical tile
+  if (var_to_physical_tile_.count(var_name)) {
+    return var_to_physical_tile_[var_name];
+  }
+  // No mapping found, return the original name
+  return var_name;
+}
+
 std::string PTOCodegen::DataTypeToPTOType(DataType dtype) {
   // Map PyPTO DataType to PTO type strings
   if (dtype == DataType::FP32) {
@@ -414,7 +451,9 @@ ExprPtr PTOCodegen::VisitExpr_(const CallPtr& op) { return IRMutator::VisitExpr_
 StmtPtr PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
   // Generate PTO assembly for this assignment
   if (auto call = As<Call>(op->value_)) {
-    std::string pto_instr = OpToPTOInstruction(call, op->var_->name_);
+    // Resolve physical tile name for the result variable
+    std::string physical_result = ResolvePhysicalTile(op->var_->name_);
+    std::string pto_instr = OpToPTOInstruction(call, physical_result);
     EmitLine(pto_instr);
   } else if (auto const_int = As<ConstInt>(op->value_)) {
     // Generate LI instruction for integer constant: LI %var:type, value
