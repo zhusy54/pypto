@@ -121,14 +121,11 @@ def test_add_alloc_pass_multiple_tiles():
         tile_height = 64
         tile_width = 64
 
-        # Load tile
-        tile_b = ib.let("tile_b", block.load(input_a, 0, 0, tile_height, tile_width))
-
-        # Compute
-        tile_d = ib.let("tile_d", block.add(tile_b, tile_b))
-
-        # Store
-        result = ib.let("result", block.store(tile_d, 0, 0, tile_height, tile_width, output))
+        # Create 4 tiles to test multiple allocs
+        tile_a = ib.let("tile_a", block.load(input_a, 0, 0, tile_height, tile_width))
+        tile_b = ib.let("tile_b", block.add(tile_a, tile_a))
+        tile_c = ib.let("tile_c", block.add(tile_b, tile_b))
+        result = ib.let("result", block.store(tile_c, 0, 0, tile_height, tile_width, output))
 
         ib.return_stmt(result)
 
@@ -144,7 +141,9 @@ def test_add_alloc_pass_multiple_tiles():
 
     # Verify multiple alloc operations were created
     alloc_count = count_alloc_operations(optimized_func)
-    assert alloc_count >= 4, f"Expected at least 4 alloc operations for 4 tiles, but got {alloc_count}"
+    # We expect 3 allocs for the 3 TileType variables (tile_a, tile_b, tile_c)
+    # The result variable is TensorType and reuses the output parameter's MemRef
+    assert alloc_count == 3, f"Expected 3 alloc operations for 3 tiles, but got {alloc_count}"
 
     # Verify alloc operations are at the beginning
     alloc_indices = get_alloc_statement_indices(optimized_func)
@@ -356,11 +355,12 @@ def test_add_alloc_pass_raw_pointer_uniqueness():
         output = f.param("output", ir.TensorType([64, 64], DataType.FP32))
         f.return_type(ir.TensorType([64, 64], DataType.FP32))
 
-        # Create multiple tiles with different MemRef objects
-        tile_b = ib.let("tile_b", block.load(input_a, 0, 0, 64, 64))
-        tile_d = ib.let("tile_d", block.add(tile_b, tile_b))
+        # Create 4 tiles with different MemRef objects
+        tile_a = ib.let("tile_a", block.load(input_a, 0, 0, 64, 64))
+        tile_b = ib.let("tile_b", block.add(tile_a, tile_a))
+        tile_c = ib.let("tile_c", block.add(tile_b, tile_b))
+        result = ib.let("result", block.store(tile_c, 0, 0, 64, 64, output))
 
-        result = ib.let("result", block.store(tile_d, 0, 0, 64, 64, output))
         ib.return_stmt(result)
 
     func = f.get_result()
@@ -377,9 +377,9 @@ def test_add_alloc_pass_raw_pointer_uniqueness():
     # Count alloc operations
     alloc_count = count_alloc_operations(optimized_func)
 
-    # We expect alloc operations for tile_a, tile_b, tile_c, tile_d
-    # (tile_c and tile_d might reuse some, but each unique MemRef should get an alloc)
-    assert alloc_count >= 4, f"Expected at least 4 unique MemRef objects, but got {alloc_count} allocs"
+    # We expect 3 allocs for the 3 TileType variables (tile_a, tile_b, tile_c)
+    # The result variable is TensorType and reuses the output parameter's MemRef
+    assert alloc_count == 3, f"Expected 3 unique MemRef objects, but got {alloc_count} allocs"
 
     # Verify alloc operations are placed at the beginning
     alloc_indices = get_alloc_statement_indices(optimized_func)

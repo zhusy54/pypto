@@ -645,8 +645,8 @@ class TestPythonSyntaxPrinting:
         assert "pl.Tile" in printed
         assert "pl.FP16" in printed
         assert "memref=" in printed
-        # MemRef with name "mem_8" prints as variable reference
-        assert "mem_8" in printed
+        # MemRef with name "mem_l0a_8" (includes memory space) prints as variable reference
+        assert "mem_l0a_8" in printed
         assert "tile_view=" in printed
         assert "pl.TileView" in printed
         assert "valid_shape=" in printed
@@ -768,8 +768,8 @@ class TestIRBuilderHelpers:
         assert "pl.Tile" in printed
         assert "pl.Tile[[32, 32], pl.FP32," in printed
         assert "pl.FP32" in printed
-        # MemRef with name "mem_36" prints as variable reference
-        assert "memref=mem_36" in printed
+        # MemRef with name "mem_l0b_36" (includes memory space) prints as variable reference
+        assert "memref=mem_l0b_36" in printed
         assert "tile_view=pl.TileView" in printed
 
 

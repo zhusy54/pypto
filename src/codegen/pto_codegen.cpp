@@ -38,7 +38,9 @@ class DeclarationCollector : public IRVisitor {
                        std::vector<std::pair<std::string, DataType>>& scalar_decls,
                        std::map<std::string, std::string>& var_to_physical_tile,
                        std::map<uint64_t, std::string>& memref_to_var)
-      : tile_decls_(tile_decls), scalar_decls_(scalar_decls), var_to_physical_tile_(var_to_physical_tile),
+      : tile_decls_(tile_decls),
+        scalar_decls_(scalar_decls),
+        var_to_physical_tile_(var_to_physical_tile),
         memref_to_var_(memref_to_var) {}
 
  protected:
@@ -90,13 +92,13 @@ class DeclarationCollector : public IRVisitor {
         var_to_physical_tile_[op->var_->name_] = op->var_->name_;  // Maps to itself
       }
     }
-    
+
     // Also check TensorType for MemRef mapping (for function params and loop results)
     if (auto tensor_type = As<TensorType>(op->var_->GetType())) {
       if (tensor_type->memref_.has_value()) {
         const auto& memref = tensor_type->memref_.value();
         uint64_t memref_id = memref->id_;
-        
+
         // Only record the first variable with this MemRef ID in memref_to_var_
         // This ensures we always map back to the original variable (usually function parameter)
         if (!memref_to_var_.count(memref_id)) {
@@ -310,14 +312,14 @@ std::string PTOCodegen::OpToPTOInstruction(const CallPtr& op, const std::string&
         if (tensor_type->memref_.has_value()) {
           const auto& memref = tensor_type->memref_.value();
           uint64_t memref_id = memref->id_;
-          
+
           // Look up the original variable name from MemRef ID
           if (memref_to_var_.count(memref_id)) {
             resolved_name = memref_to_var_[memref_id];
           }
         }
       }
-      
+
       // Then resolve to physical tile name for tile variables
       std::string physical_name = ResolvePhysicalTile(resolved_name);
       args.push_back("%" + physical_name);
@@ -325,20 +327,20 @@ std::string PTOCodegen::OpToPTOInstruction(const CallPtr& op, const std::string&
       // IterArg is a subclass of Var, but has its own kind
       // For IterArg, we need to resolve to the original tensor parameter using MemRef ID
       std::string original_name = arg_str;
-      
+
       // Try to find the original variable name via MemRef ID
       if (auto tensor_type = As<TensorType>(iter_arg->GetType())) {
         if (tensor_type->memref_.has_value()) {
           const auto& memref = tensor_type->memref_.value();
           uint64_t memref_id = memref->id_;
-          
+
           // Look up the original variable name from MemRef ID
           if (memref_to_var_.count(memref_id)) {
             original_name = memref_to_var_[memref_id];
           }
         }
       }
-      
+
       std::string physical_name = ResolvePhysicalTile(original_name);
       args.push_back("%" + physical_name);
     } else if (auto const_int = As<ConstInt>(arg)) {
