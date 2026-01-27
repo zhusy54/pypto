@@ -96,38 +96,39 @@ FunctionPtr AddAllocPass::Run(const FunctionPtr& func) {
   std::vector<StmtPtr> alloc_stmts;
 
   for (const auto& memref : memrefs) {
-    // Create block.alloc operation with memref ID as argument
+    // Create block.alloc operation with all MemRef fields as arguments
     auto alloc_op = std::make_shared<Op>("block.alloc");
 
-    // Create a ConstInt expression for the MemRef ID
-    auto memref_id_expr = std::make_shared<ConstInt>(
-        static_cast<int64_t>(memref->id_),
-        DataType::INT64,
-        Span::unknown()
-    );
+    // Create expressions for each MemRef field:
+    // 1. memory_space - Convert enum to ConstInt
+    auto memspace_expr = std::make_shared<ConstInt>(static_cast<int64_t>(memref->memory_space_),
+                                                    DataType::INT64, Span::unknown());
 
+    // 2. addr - Already an ExprPtr
+    ExprPtr addr_expr = memref->addr_;
+
+    // 3. size - Convert uint64_t to ConstInt
+    auto size_expr =
+        std::make_shared<ConstInt>(static_cast<int64_t>(memref->size_), DataType::INT64, Span::unknown());
+
+    // 4. id - Convert uint64_t to ConstInt
+    auto id_expr =
+        std::make_shared<ConstInt>(static_cast<int64_t>(memref->id_), DataType::INT64, Span::unknown());
+
+    // Build argument vector: [memspace, addr, size, id]
     std::vector<ExprPtr> alloc_args;
-    alloc_args.push_back(memref_id_expr);
+    alloc_args.push_back(memspace_expr);
+    alloc_args.push_back(addr_expr);
+    alloc_args.push_back(size_expr);
+    alloc_args.push_back(id_expr);
 
     // Create a Call expression for the alloc operation
-    // The alloc operation returns INT64 (pointer address)
-    auto alloc_call = std::make_shared<Call>(
-        alloc_op,
-        alloc_args,
-        std::make_shared<ScalarType>(DataType::INT64),
-        Span::unknown()
-    );
+    // The alloc operation now returns MemRefType
+    auto alloc_call = std::make_shared<Call>(alloc_op, alloc_args, GetMemRefType(), Span::unknown());
 
-    // Create a temporary variable to hold the result (allocated pointer)
-    auto memref_var_name = "alloc_" + std::to_string(memref->id_);
-    auto memref_var = std::make_shared<Var>(
-        memref_var_name,
-        std::make_shared<ScalarType>(DataType::INT64),
-        Span::unknown()
-    );
-
-    // Create an assignment statement: alloc_var = block.alloc(memref_id)
-    auto assign_stmt = std::make_shared<AssignStmt>(memref_var, alloc_call, Span::unknown());
+    // Create an assignment statement: mem_123: MemRefType = block.alloc(memspace, addr, size, id)
+    // where mem_123 is the MemRef variable itself (which is already a Var)
+    auto assign_stmt = std::make_shared<AssignStmt>(memref, alloc_call, Span::unknown());
     alloc_stmts.push_back(assign_stmt);
   }
 

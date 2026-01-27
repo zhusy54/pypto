@@ -372,6 +372,37 @@ class TupleType : public Type {
 
 using TupleTypePtr = std::shared_ptr<const TupleType>;
 
+/**
+ * @brief Memory reference type representation
+ *
+ * Represents a memory reference type for shaped data (tensors and tiles).
+ * Used as the type for MemRef variables.
+ */
+class MemRefType : public Type {
+ public:
+  /**
+   * @brief Create a memory reference type
+   */
+  MemRefType() = default;
+
+  [[nodiscard]] IRNodeKind GetKind() const override { return IRNodeKind::MemRefType; }
+  [[nodiscard]] std::string TypeName() const override { return "MemRefType"; }
+
+  static constexpr auto GetFieldDescriptors() { return Type::GetFieldDescriptors(); }
+};
+
+using MemRefTypePtr = std::shared_ptr<const MemRefType>;
+
+/**
+ * @brief Get a shared pointer to the singleton MemRefType instance
+ *
+ * @return Shared pointer to MemRefType
+ */
+inline MemRefTypePtr GetMemRefType() {
+  static const auto memref_type = std::make_shared<MemRefType>();
+  return memref_type;
+}
+
 }  // namespace ir
 }  // namespace pypto
 

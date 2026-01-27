@@ -40,6 +40,7 @@ enum class IRNodeKind {
   // Expression kinds
   Var,
   IterArg,
+  MemRef,
   Call,
   TupleGetItemExpr,
   ConstInt,
@@ -90,6 +91,7 @@ enum class IRNodeKind {
 
   // Type kinds
   UnknownType,
+  MemRefType,
   ScalarType,
   ShapedType,
   TensorType,

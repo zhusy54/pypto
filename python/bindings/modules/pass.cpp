@@ -54,9 +54,15 @@ void BindPass(nb::module_& m) {
       .def(nb::init<>(), "Create a BasicMemoryReuse pass");
 
   // AddAllocPass - a pass that adds alloc operations for MemRef objects
-  nb::class_<AddAllocPass, Pass>(passes, "AddAllocPass",
-                                 "A pass that adds alloc operations for all MemRef objects in TileType variables")
+  nb::class_<AddAllocPass, Pass>(
+      passes, "AddAllocPass",
+      "A pass that adds alloc operations for all MemRef objects in TileType variables")
       .def(nb::init<>(), "Create an AddAlloc pass");
+
+  // InsertSyncPass - a pass that inserts sync operations
+  nb::class_<InsertSyncPass, Pass>(passes, "InsertSyncPass",
+                                   "A pass that inserts sync operations for pipeline synchronization")
+      .def(nb::init<>(), "Create an InsertSync pass");
 }
 
 }  // namespace python

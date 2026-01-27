@@ -30,6 +30,9 @@ namespace ir {
 class Expr;
 using ExprPtr = std::shared_ptr<const Expr>;
 
+class MemRef;
+using MemRefPtr = std::shared_ptr<const MemRef>;
+
 /**
  * @brief Memory space enumeration
  *
@@ -49,45 +52,6 @@ enum class MemorySpace {
   L0B,  ///< L0B buffer
   L0C   ///< L0C buffer
 };
-
-/**
- * @brief Memory reference for shaped types (tensor and tile)
- *
- * Represents memory allocation information for ShapedType instances.
- * Tracks memory space, address, size, and a unique identifier.
- * This is a plain struct (not an IRNode) that is embedded in ShapedType.
- */
-struct MemRef {
-  MemorySpace memory_space_;  ///< Memory space (DDR, UB, L1, etc.)
-  ExprPtr addr_;              ///< Starting address (expression)
-  uint64_t size_;             ///< Size in bytes (64-bit unsigned)
-  uint64_t id_;               ///< Unique identifier for this MemRef instance
-
-  /**
-   * @brief Constructor with all parameters including explicit ID
-   *
-   * @param memory_space Memory space (DDR, UB, L1, etc.)
-   * @param addr Starting address expression
-   * @param size Size in bytes
-   * @param id Explicit ID value (assigned by InitMemRefPass)
-   */
-  MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id)
-      : memory_space_(memory_space), addr_(std::move(addr)), size_(size), id_(id) {}
-
-  /**
-   * @brief Get field descriptors for reflection-based visitation
-   *
-   * @return Tuple of field descriptors
-   */
-  static constexpr auto GetFieldDescriptors() {
-    return std::make_tuple(reflection::UsualField(&MemRef::memory_space_, "memory_space"),
-                           reflection::UsualField(&MemRef::addr_, "addr"),
-                           reflection::UsualField(&MemRef::size_, "size"),
-                           reflection::UsualField(&MemRef::id_, "id"));
-  }
-};
-
-using MemRefPtr = std::shared_ptr<const MemRef>;
 
 /**
  * @brief Convert MemorySpace enum to string

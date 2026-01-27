@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
 #include <utility>
@@ -20,6 +21,7 @@
 
 #include "pypto/core/any_cast.h"
 #include "pypto/core/dtype.h"
+#include "pypto/ir/expr.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/kind_traits.h"
 #include "pypto/ir/memref.h"
@@ -130,6 +132,7 @@ class IRPythonPrinter : public IRVisitor {
   // Expression visitors
   void VisitExpr_(const VarPtr& op) override;
   void VisitExpr_(const IterArgPtr& op) override;
+  void VisitExpr_(const MemRefPtr& op) override;
   void VisitExpr_(const ConstIntPtr& op) override;
   void VisitExpr_(const ConstFloatPtr& op) override;
   void VisitExpr_(const ConstBoolPtr& op) override;
@@ -309,7 +312,7 @@ std::string IRPythonPrinter::Print(const TypePtr& type) {
 
     // Add optional memref parameter if present
     if (tile_type->memref_.has_value()) {
-      oss << ", memref=" << PrintMemRef(*tile_type->memref_.value());
+      oss << ", memref=" << tile_type->memref_.value()->name_;
     }
 
     // Add optional tile_view parameter if present
@@ -329,6 +332,10 @@ std::string IRPythonPrinter::Print(const TypePtr& type) {
     }
     oss << "])";
     return oss.str();
+  }
+
+  if (auto memref_type = As<MemRefType>(type)) {
+    return prefix_ + ".MemRefType";
   }
 
   return prefix_ + ".UnknownType";
@@ -351,6 +358,8 @@ void IRPythonPrinter::VisitExpr_(const VarPtr& op) { stream_ << op->name_; }
 
 void IRPythonPrinter::VisitExpr_(const IterArgPtr& op) { stream_ << op->name_; }
 
+void IRPythonPrinter::VisitExpr_(const MemRefPtr& op) { stream_ << op->name_; }
+
 void IRPythonPrinter::VisitExpr_(const ConstIntPtr& op) { stream_ << op->value_; }
 
 void IRPythonPrinter::VisitExpr_(const ConstFloatPtr& op) { stream_ << FormatFloatLiteral(op->value_); }
@@ -363,7 +372,19 @@ void IRPythonPrinter::VisitExpr_(const CallPtr& op) {
   // Print positional arguments
   for (size_t i = 0; i < op->args_.size(); ++i) {
     if (i > 0) stream_ << ", ";
-    VisitExpr(op->args_[i]);
+
+    // Special handling for block.alloc's first argument (memory_space)
+    if (op->op_->name_ == "block.alloc" && i == 0) {
+      // Try to extract the integer value and convert it to MemorySpace enum
+      if (auto const_int = std::dynamic_pointer_cast<const ConstInt>(op->args_[i])) {
+        int space_value = static_cast<int>(const_int->value_);
+        stream_ << prefix_ << ".MemorySpace." << MemorySpaceToString(static_cast<MemorySpace>(space_value));
+      } else {
+        VisitExpr(op->args_[i]);
+      }
+    } else {
+      VisitExpr(op->args_[i]);
+    }
   }
 
   // Print kwargs as keyword arguments

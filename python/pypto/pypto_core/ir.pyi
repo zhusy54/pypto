@@ -486,8 +486,8 @@ class MemorySpace(enum.Enum):
     L0C = ...
     """L0C buffer."""
 
-class MemRef:
-    """Memory reference for shaped types (embedded in ShapedType)."""
+class MemRef(Var):
+    """Memory reference variable for shaped types (inherits from Var)."""
 
     memory_space_: MemorySpace
     """Memory space (DDR, UB, L1, etc.)."""
@@ -501,14 +501,15 @@ class MemRef:
     id_: int
     """Unique identifier for this MemRef instance."""
 
-    def __init__(self, memory_space: MemorySpace, addr: Expr, size: int, id: int) -> None:
-        """Create a memory reference with memory_space, addr, size, and id.
+    def __init__(self, memory_space: MemorySpace, addr: Expr, size: int, id: int, span: Span = ...) -> None:
+        """Create a memory reference with memory_space, addr, size, id, and span.
 
         Args:
             memory_space: Memory space (DDR, UB, L1, etc.)
             addr: Starting address expression
             size: Size in bytes
             id: Unique identifier for this MemRef instance
+            span: Source location (defaults to Span.unknown())
         """
 
 DYNAMIC_DIM: Final[int]

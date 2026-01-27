@@ -12,12 +12,12 @@
 #ifndef PYPTO_IR_TRANSFORM_ADD_ALLOC_PASS_H_
 #define PYPTO_IR_TRANSFORM_ADD_ALLOC_PASS_H_
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
-#include "pypto/ir/transform/base/pass.h"
 #include "pypto/ir/memref.h"
+#include "pypto/ir/transform/base/pass.h"
 
 namespace pypto {
 namespace ir {
