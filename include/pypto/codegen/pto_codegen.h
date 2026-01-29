@@ -134,6 +134,29 @@ class PTOCodegen : public IRMutator {
   std::string GenerateFunction(const FunctionPtr& func);
 
   /**
+   * @brief Determine if a function is an orchestration function
+   *
+   * Orchestration functions are characterized by:
+   * - Having TensorType parameters (not TileType)
+   * - Containing Call operations to other functions (tasks)
+   *
+   * @param func Function to analyze
+   * @return true if orchestration function, false if kernel function
+   */
+  bool IsOrchestrationFunction(const FunctionPtr& func);
+
+  /**
+   * @brief Generate C++ orchestration code for a function
+   *
+   * Generates C++ code that builds task graphs using Runtime API.
+   * Function signature: int BuildXXX(Runtime* runtime, uint64_t* args, int arg_count)
+   *
+   * @param func Orchestration function
+   * @return C++ code string
+   */
+  std::string GenerateOrchestrationCode(const FunctionPtr& func);
+
+  /**
    * @brief Emit a line of PTO assembly with proper indentation
    *
    * Adds indentation based on indent_level_ and appends to code_lines_.
