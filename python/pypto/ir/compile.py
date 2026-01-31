@@ -66,13 +66,21 @@ def compile(
     pm = PassManager.get_strategy(strategy)
     transformed_program = pm.run_passes(program, dump_ir=dump_passes, output_dir=output_dir)
 
-    # Generate PTO assembly code
+    # Generate code files (orchestration + kernels)
     codegen = _ir_core.PTOCodegen()
-    pto_code = codegen.generate(transformed_program)  # type: ignore[arg-type]
+    files = codegen.generate(transformed_program)  # type: ignore[arg-type]
 
-    # Save PTO assembly
-    pto_path = os.path.join(output_dir, "output.pto")
-    with open(pto_path, "w") as f:
-        f.write(pto_code)
+    # Save all generated files
+    for filepath, content in files.items():
+        full_path = os.path.join(output_dir, filepath)
+
+        # Create subdirectories if needed (e.g., kernels/)
+        file_dir = os.path.dirname(full_path)
+        if file_dir:
+            os.makedirs(file_dir, exist_ok=True)
+
+        # Write file
+        with open(full_path, "w") as f:
+            f.write(content)
 
     return output_dir

@@ -1719,12 +1719,13 @@ class IRBuilder:
         """Create an IR builder."""
 
     # Function building
-    def begin_function(self, name: str, span: Span) -> None:
+    def begin_function(self, name: str, span: Span, type: FunctionType = FunctionType.Opaque) -> None:
         """Begin building a function.
 
         Args:
             name: Function name
             span: Source location for function definition
+            type: Function type (default: Opaque)
         """
 
     def func_arg(self, name: str, type: Type, span: Span) -> Var:
@@ -2058,21 +2059,31 @@ class PTOCodegen:
     def __init__(self) -> None:
         """Create a new PTO code generator."""
 
-    def generate(self, program: Program) -> str:
-        """Generate PTO assembly code from PyPTO IR Program.
+    def generate(self, program: Program) -> dict[str, str]:
+        """Generate code to separate files for each function.
 
-        Transforms the entire program into PTO assembly (.pto format).
+        Generates kernel functions and orchestration functions to separate files:
+        - Each kernel function -> kernels/<func_name>.pto (PTO assembly)
+        - Orchestration function -> <func_name>.cpp (C++ runtime code)
+
+        Note: A program should have exactly one orchestration function.
 
         Args:
             program: Input PyPTO IR Program
 
         Returns:
-            PTO assembly string (.pto format)
+            Dictionary mapping file paths (with subdirectory) to file content
 
         Example:
             >>> codegen = ir.PTOCodegen()
-            >>> pto_code = codegen.generate(program)
-            >>> print(pto_code)
+            >>> files = codegen.generate(program)
+            >>> for filepath, content in files.items():
+            ...     print(f"File: {filepath}")
+            ...     # filepath could be "kernels/kernel_add.pto" or "dynamic_softmax.cpp"
+            ...     full_path = os.path.join(output_dir, filepath)
+            ...     os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            ...     with open(full_path, 'w') as f:
+            ...         f.write(content)
         """
 
 def add(lhs: Expr, rhs: Expr, span: Span) -> Expr:
