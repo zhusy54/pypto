@@ -17,6 +17,7 @@
 #define PYPTO_CODEGEN_CCE_CODEGEN_H_
 >>>>>>>> 74a1840 (refactor(codegen): Rename CCE codegen to match PTOCodegen style):include/pypto/codegen/cce_codegen.h
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,6 +27,7 @@
 #include "pypto/codegen/cce/isa_mapper.h"
 #include "pypto/codegen/cce/type_converter.h"
 #include "pypto/ir/function.h"
+#include "pypto/ir/program.h"
 #include "pypto/ir/transforms/base/visitor.h"
 #include "pypto/ir/type.h"
 
@@ -46,12 +48,16 @@ class CCECodegen : public ir::IRVisitor {
   CCECodegen();
 
   /**
-   * @brief Generate C++ code from a PyPTO IR function
+   * @brief Generate C++ code from a PyPTO IR Program
    *
-   * @param func The IR function to generate code for
-   * @return Generated C++ code as a string
+   * Classifies functions into kernel and orchestration, then generates:
+   * - Kernel functions -> kernels/<func_name>.cpp (CCE kernel C++ code)
+   * - Orchestration function -> orchestration/<func_name>.cpp (orchestration C++ code)
+   *
+   * @param program The IR Program to generate code for
+   * @return Map from file path to generated C++ code content
    */
-  [[nodiscard]] std::string Generate(const ir::FunctionPtr& func);
+  [[nodiscard]] std::map<std::string, std::string> Generate(const ir::ProgramPtr& program);
 
  protected:
   // Override visitor methods for code generation - Statements
@@ -163,6 +169,17 @@ class CCECodegen : public ir::IRVisitor {
    * @return Hex string (e.g., "0x0", "0x10000")
    */
   std::string FormatAddressHex(int64_t addr);
+
+  /**
+   * @brief Generate CCE kernel C++ code for a single function
+   *
+   * Emits function prologue (signature, argument unpacking, type declarations)
+   * and body (block operations, control flow) for kernel (InCore) functions.
+   *
+   * @param func The kernel function to generate code for
+   * @return Generated C++ code as a string
+   */
+  std::string GenerateFunction(const ir::FunctionPtr& func);
 
   /**
    * @brief Generate Tile type declaration and instance

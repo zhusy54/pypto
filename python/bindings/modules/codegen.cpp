@@ -98,12 +98,20 @@ void BindCodegen(nb::module_& m) {
   nb::class_<CCECodegen>(codegen_module, "CCECodegen",
                          "CCE code generator for converting PyPTO IR to pto-isa C++ code")
       .def(nb::init<>(), "Create a code generator")
-      .def("Generate", &CCECodegen::Generate, nb::arg("func"),
-           "Generate C++ code from a PyPTO IR function\n\n"
-           "Args:\n"
-           "    func: The IR Function to generate code for\n\n"
-           "Returns:\n"
-           "    Generated C++ code as a string");
+      .def(
+          "Generate",
+          [](CCECodegen& self, const ProgramPtr& program) {
+            auto files_map = self.Generate(program);
+            nb::dict result;
+            for (const auto& pair : files_map) {
+              result[pair.first.c_str()] = pair.second;
+            }
+            return result;
+          },
+          nb::arg("program"),
+          "Generate C++ code from a PyPTO IR Program. Returns a dict mapping file paths to "
+          "content. Kernel functions -> kernels/<func_name>.cpp, orchestration -> "
+          "orchestration/<func_name>.cpp.");
 }
 
 }  // namespace python
