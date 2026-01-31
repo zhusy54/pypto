@@ -2083,16 +2083,3 @@ def bit_shift_right(lhs: Expr, rhs: Expr, span: Span) -> Expr:
 
 def bit_not(operand: Expr, span: Span) -> Expr:
     """Bitwise not operator (~operand)."""
-
-class PTOCodegen:
-    """Code generator that transforms PyPTO IR to PTO-ISA MLIR format."""
-
-    def __init__(self) -> None:
-        """Create a new PTO assembly code generator."""
-
-    def generate(self, program: Program) -> str:
-        """Generate PTO-ISA MLIR format code from PyPTO IR Program.
-
-        Returns:
-            MLIR code string (.pto format) with instructions like tmul, tadd, FOR/ENDFOR, etc.
-        """

@@ -22,15 +22,10 @@ Tests verify:
 import pypto.language as pl
 import pytest
 from pypto.ir import OptimizationStrategy, PassManager
+from pypto.pypto_core.codegen import PTOCodegen
 
-try:
-    from pypto.pypto_core.ir import PTOCodegen
-
-    _PTOCodegen_IS_MLIR = True  # ir.PTOCodegen outputs MLIR format
-except ImportError:
-    from pypto.pypto_core.codegen import PTOCodegen
-
-    _PTOCodegen_IS_MLIR = False  # codegen.PTOCodegen outputs PTO assembly, not MLIR
+# PTOCodegen from codegen module outputs PTO assembly, not MLIR
+_PTOCodegen_IS_MLIR = False
 
 
 def _get_mlir_code(result):

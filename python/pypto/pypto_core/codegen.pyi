@@ -91,25 +91,19 @@ class PTOCodegen:
     def __init__(self) -> None:
         """Create a new PTO code generator."""
 
-    def generate(self, program: Program) -> dict[str, str]:
-        """Generate code to separate files for each function.
-
-        Generates kernel functions and orchestration functions to separate files:
-        - Each kernel function -> kernels/<func_name>.pto (PTO assembly)
-        - Orchestration function -> <func_name>.cpp (C++ runtime code)
-
-        Note: A program should have exactly one orchestration function.
+    def generate(self, program: Program) -> str:
+        """Generate PTO assembly from PyPTO IR Program.
 
         Args:
             program: Input PyPTO IR Program
 
         Returns:
-            Dictionary mapping file paths (with subdirectory) to file content
+            PTO assembly code string (.pto format) with instructions like tmul, tadd, FOR/ENDFOR, etc.
 
         Example:
             >>> from pypto.pypto_core import codegen
             >>> cg = codegen.PTOCodegen()
-            >>> files = cg.generate(program)
+            >>> pto_code = cg.generate(program)
         """
 
 class CCECodegen:

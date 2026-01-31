@@ -17,8 +17,8 @@
 #include <nanobind/stl/vector.h>
 
 #include "pypto/codegen/cce/code_generator.h"
-#include "pypto/codegen/cce/isa_mapper.h"
 #include "pypto/codegen/cce/type_converter.h"
+#include "pypto/codegen/pto/pto_codegen.h"
 
 namespace nb = nanobind;
 
@@ -74,25 +74,16 @@ void BindCodegen(nb::module_& m) {
            "Returns:\n"
            "    Stride type string with 5D padding");
 
-  // PTOCodegen - IR to PTO assembly code generator (unified in codegen module)
-  nb::class_<PTOCodegen>(codegen_module, "PTOCodegen",
-                         "Code generator that transforms PyPTO IR to PTO assembly (.pto files). "
-                         "Generates PTO ISA instructions in SSA form with tile operations, control flow, "
-                         "and type annotations.")
+  // PTOCodegen - PTO assembly code generator
+  nb::class_<PTOCodegen>(
+      codegen_module, "PTOCodegen",
+      "Code generator that transforms PyPTO IR to PTO assembly (.pto files). "
+      "Generates PTO ISA instructions in SSA form with tile operations, control flow, and type "
+      "annotations.")
       .def(nb::init<>(), "Create a new PTO assembly code generator")
-      .def(
-          "generate",
-          [](PTOCodegen& self, const ProgramPtr& program) {
-            auto files_map = self.Generate(program);
-            nb::dict result;
-            for (const auto& pair : files_map) {
-              result[pair.first.c_str()] = pair.second;
-            }
-            return result;
-          },
-          nb::arg("program"),
-          "Generate code to separate files for each function. Returns a dictionary mapping file paths to "
-          "content. Kernel functions -> kernels/<func_name>.pto, orchestration -> <func_name>.cpp.");
+      .def("generate", &PTOCodegen::Generate, nb::arg("program"),
+           "Generate PTO assembly from PyPTO IR Program. Returns PTO assembly code string (.pto format) with "
+           "instructions like tmul, tadd, FOR/ENDFOR, etc.");
 
   // CCECodegen - CCE/pto-isa C++ code generator (unified in codegen module)
   nb::class_<CCECodegen>(codegen_module, "CCECodegen",

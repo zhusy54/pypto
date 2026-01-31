@@ -78,27 +78,36 @@ def compile(
     pm = PassManager.get_strategy(strategy)
     transformed_program = pm.run_passes(program, dump_ir=dump_passes, output_dir=output_dir)
 
-    # Generate code files (orchestration + kernels) using selected backend
+    # Generate code using selected backend
     if codegen == CodegenBackend.PTO:
+        # PTOCodegen returns a single PTO assembly string
         codegen_instance = _codegen_core.PTOCodegen()
-        files = codegen_instance.generate(transformed_program)  # type: ignore[arg-type]
+        pto_code = codegen_instance.generate(transformed_program)  # type: ignore[arg-type]
+
+        # Save PTO assembly to output.pto
+        pto_path = os.path.join(output_dir, "output.pto")
+        with open(pto_path, "w") as f:
+            f.write(pto_code)
+
     elif codegen == CodegenBackend.CCE:
+        # CCECodegen returns a dict mapping file paths to content
         codegen_instance = _codegen_core.CCECodegen()
         files = codegen_instance.generate(transformed_program)  # type: ignore[arg-type]
+
+        # Save all generated files
+        for filepath, content in files.items():
+            full_path = os.path.join(output_dir, filepath)
+
+            # Create subdirectories if needed (e.g., kernels/)
+            file_dir = os.path.dirname(full_path)
+            if file_dir:
+                os.makedirs(file_dir, exist_ok=True)
+
+            # Write file
+            with open(full_path, "w") as f:
+                f.write(content)
+
     else:
         raise ValueError(f"Unsupported codegen backend: {codegen}")
-
-    # Save all generated files
-    for filepath, content in files.items():
-        full_path = os.path.join(output_dir, filepath)
-
-        # Create subdirectories if needed (e.g., kernels/)
-        file_dir = os.path.dirname(full_path)
-        if file_dir:
-            os.makedirs(file_dir, exist_ok=True)
-
-        # Write file
-        with open(full_path, "w") as f:
-            f.write(content)
 
     return output_dir
