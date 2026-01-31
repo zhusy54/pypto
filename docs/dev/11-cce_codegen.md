@@ -4,7 +4,7 @@
 
 The PyPTO code generation (codegen) module converts optimized PyPTO IR into executable C++ code using the pto-isa instruction set.
 
-**Pipeline:** `IR → PassManager → CceCodegen → Compiler`
+**Pipeline:** `IR → PassManager → CCECodegen → Compiler`
 
 **Key Design Principles:**
 - **Standalone Component**: Not a Pass. Passes transform IR→IR, codegen transforms IR→String
@@ -18,7 +18,7 @@ The PyPTO code generation (codegen) module converts optimized PyPTO IR into exec
 
 | Component | Purpose | Location |
 |-----------|---------|----------|
-| `CceCodegen` | Main orchestrator, extends IRVisitor | [code_generator.h](../../include/pypto/codegen/code_generator.h) |
+| `CCECodegen` | Main orchestrator, extends IRVisitor | [cce_codegen.h](../../include/pypto/codegen/cce_codegen.h) |
 | `CodeEmitter` | Structured output with indentation | [code_emitter.h](../../include/pypto/codegen/code_emitter.h) |
 | `CodeContext` | Variable name mapping and pointer tracking | [code_context.h](../../include/pypto/codegen/code_context.h) |
 | `TypeConverter` | IR types → pto-isa C++ types | [type_converter.h](../../include/pypto/codegen/type_converter.h) |
@@ -86,7 +86,7 @@ Maps PyPTO IR operations to pto-isa instructions.
 | `system.sync_dst` | `wait_flag` | Sync | Wait flag |
 | `system.bar_v/m/all` | `pipe_barrier` | Sync | Barrier |
 
-### CceCodegen
+### CCECodegen
 
 Main class orchestrating all components. Extends `IRVisitor`.
 
@@ -130,10 +130,10 @@ void VisitStmt_(const YieldStmtPtr& op);    // Yield values
 
 **C++ API:**
 ```cpp
-#include "pypto/codegen/code_generator.h"
+#include "pypto/codegen/cce_codegen.h"
 
 FunctionPtr func = /* from IR */;
-codegen::CceCodegen generator;
+codegen::CCECodegen generator;
 std::string cpp_code = generator.Generate(func);
 ```
 
@@ -331,9 +331,9 @@ pytest -v tests/ut/codegen/       # Verbose
 4. Debugging support (print statements, profiling, source tracking)
 
 **Extensibility:**
-- Add operations: Update `ISAMapper::InitializeMappings()` + optional handling in CceCodegen
+- Add operations: Update `ISAMapper::InitializeMappings()` + optional handling in CCECodegen
 - Add types: Update `TypeConverter::ConvertDataType()`
-- Add visitor methods: Override in CceCodegen + test
+- Add visitor methods: Override in CCECodegen + test
 
 ## References
 

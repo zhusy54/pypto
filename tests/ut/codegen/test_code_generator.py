@@ -7,7 +7,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""Unit tests for CceCodegen class."""
+"""Unit tests for CCECodegen class."""
 
 from pypto import DataType, ir
 from pypto.ir.builder import IRBuilder
@@ -16,12 +16,12 @@ from pypto.ir.pass_manager import PassManager
 from pypto.pypto_core import codegen
 
 
-class TestCceCodegenBasics:
-    """Test basic CceCodegen functionality."""
+class TestCCECodegenBasics:
+    """Test basic CCECodegen functionality."""
 
     def test_create_cce_codegen(self):
-        """Test creating a CceCodegen instance."""
-        generator = codegen.CceCodegen()
+        """Test creating a CCECodegen instance."""
+        generator = codegen.CCECodegen()
         assert generator is not None
 
     def test_tadds_example(self):
@@ -57,7 +57,7 @@ class TestCceCodegenBasics:
         optimized_program = pm.run_passes(program)
         optimized_func = list(optimized_program.functions.values())[0]
 
-        generator = codegen.CceCodegen()
+        generator = codegen.CCECodegen()
         code = generator.Generate(optimized_func)
 
         # Verify function parameters unpacking and declarations are generated
@@ -104,7 +104,7 @@ class TestControlFlowCodegen:
             ib.return_stmt(result)
 
         func = f.get_result()
-        generator = codegen.CceCodegen()
+        generator = codegen.CCECodegen()
         code = generator.Generate(func)
         # print(code)
 
@@ -139,7 +139,7 @@ class TestControlFlowCodegen:
             ib.return_stmt(result)
 
         func = f.get_result()
-        generator = codegen.CceCodegen()
+        generator = codegen.CCECodegen()
         code = generator.Generate(func)
 
         # Verify nested loop structure
@@ -168,7 +168,7 @@ class TestControlFlowCodegen:
 
         func = ir.Function("test_if", [], [ir.TensorType([1], DataType.FP32)], seq, span)
 
-        generator = codegen.CceCodegen()
+        generator = codegen.CCECodegen()
         code = generator.Generate(func)
 
         # Verify if structure
@@ -204,7 +204,7 @@ class TestControlFlowCodegen:
 
         func = ir.Function("test_if_else", [], [ir.TensorType([1], DataType.FP32)], seq, span)
 
-        generator = codegen.CceCodegen()
+        generator = codegen.CCECodegen()
         code = generator.Generate(func)
 
         # Verify if-else structure

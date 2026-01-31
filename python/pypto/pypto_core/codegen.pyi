@@ -78,7 +78,7 @@ class TypeConverter:
             Stride type string with 5D padding
         """
 
-class CceCodegen:
+class CCECodegen:
     """CCE code generator for converting PyPTO IR to pto-isa C++ code"""
 
     def __init__(self) -> None:
@@ -96,5 +96,5 @@ class CceCodegen:
 
 __all__ = [
     "TypeConverter",
-    "CceCodegen",
+    "CCECodegen",
 ]

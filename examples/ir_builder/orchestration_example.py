@@ -169,10 +169,14 @@ def build_example_graph(ib: IRBuilder, dtype: DataType = DataType.FP32):
 
         # Task 1: d = c + 1 (call kernel_add_scalar with output buffer d)
         kernel_add_scalar_op = ir.GlobalVar("kernel_add_scalar")
-        d_updated = ib.let("d_updated", ir.Call(kernel_add_scalar_op, [c_updated, scalar_1, d], ir.Span.unknown()))
+        d_updated = ib.let(
+            "d_updated", ir.Call(kernel_add_scalar_op, [c_updated, scalar_1, d], ir.Span.unknown())
+        )
 
         # Task 2: e = c + 2 (call kernel_add_scalar with output buffer e)
-        e_updated = ib.let("e_updated", ir.Call(kernel_add_scalar_op, [c_updated, scalar_2, e], ir.Span.unknown()))
+        e_updated = ib.let(
+            "e_updated", ir.Call(kernel_add_scalar_op, [c_updated, scalar_2, e], ir.Span.unknown())
+        )
 
         # Task 3: f = d * e (call kernel_mul with output buffer)
         kernel_mul_op = ir.GlobalVar("kernel_mul")
