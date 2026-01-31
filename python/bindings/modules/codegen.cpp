@@ -99,7 +99,7 @@ void BindCodegen(nb::module_& m) {
                          "CCE code generator for converting PyPTO IR to pto-isa C++ code")
       .def(nb::init<>(), "Create a code generator")
       .def(
-          "Generate",
+          "generate",
           [](CCECodegen& self, const ProgramPtr& program) {
             auto files_map = self.Generate(program);
             nb::dict result;

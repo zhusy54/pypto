@@ -11,6 +11,7 @@
 
 import os
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pypto.pypto_core import codegen as _codegen_core
@@ -19,18 +20,26 @@ from pypto.pypto_core import ir as _ir_core
 from .pass_manager import OptimizationStrategy, PassManager
 
 
+class CodegenBackend(Enum):
+    """Codegen backend selection for compilation."""
+
+    PTO = "pto"  # PTO assembly format (.pto files)
+    CCE = "cce"  # CCE C++ format (.cpp files)
+
+
 def compile(
     program: _ir_core.Program,
     output_dir: Optional[str] = None,
     strategy: OptimizationStrategy = OptimizationStrategy.Default,
     dump_passes: bool = True,
+    codegen: CodegenBackend = CodegenBackend.PTO,
 ) -> str:
     """Compile a Program through passes and codegen.
 
     This function provides a complete compilation pipeline that:
     1. Runs optimization passes via PassManager
     2. Optionally dumps IR before and after each pass (if dump_passes=True)
-    3. Generates PTO assembly code via PTOCodegen
+    3. Generates code via selected codegen backend (PTO or CCE)
     4. Saves all artifacts to a unified output directory
 
     Args:
@@ -38,6 +47,7 @@ def compile(
         output_dir: Output directory (default: build_output/<program_name>_<timestamp>)
         strategy: Optimization strategy to use (default: Default)
         dump_passes: Whether to dump IR after each pass (default: True)
+        codegen: Codegen backend to use (default: PTO)
 
     Returns:
         Path to the output directory containing all artifacts
@@ -46,11 +56,12 @@ def compile(
         >>> from pypto import ir, DataType
         >>> # Create program
         >>> program = build_my_program()
-        >>> # Compile with PTOAS optimization
+        >>> # Compile with PTOAS optimization and PTO backend
         >>> output_dir = ir.compile(
         ...     program,
         ...     strategy=ir.OptimizationStrategy.PTOAS,
-        ...     dump_passes=True
+        ...     dump_passes=True,
+        ...     codegen=ir.CodegenBackend.PTO
         ... )
         >>> print(f"Artifacts saved to: {output_dir}")
     """
@@ -67,9 +78,15 @@ def compile(
     pm = PassManager.get_strategy(strategy)
     transformed_program = pm.run_passes(program, dump_ir=dump_passes, output_dir=output_dir)
 
-    # Generate code files (orchestration + kernels)
-    pto_codegen = _codegen_core.PTOCodegen()
-    files = pto_codegen.generate(transformed_program)  # type: ignore[arg-type]
+    # Generate code files (orchestration + kernels) using selected backend
+    if codegen == CodegenBackend.PTO:
+        codegen_instance = _codegen_core.PTOCodegen()
+        files = codegen_instance.generate(transformed_program)  # type: ignore[arg-type]
+    elif codegen == CodegenBackend.CCE:
+        codegen_instance = _codegen_core.CCECodegen()
+        files = codegen_instance.generate(transformed_program)  # type: ignore[arg-type]
+    else:
+        raise ValueError(f"Unsupported codegen backend: {codegen}")
 
     # Save all generated files
     for filepath, content in files.items():

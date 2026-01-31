@@ -118,7 +118,7 @@ class CCECodegen:
     def __init__(self) -> None:
         """Create a code generator."""
 
-    def Generate(self, program: Program) -> dict[str, str]:
+    def generate(self, program: Program) -> dict[str, str]:
         """Generate C++ code from a PyPTO IR Program.
 
         Classifies functions into kernel and orchestration, then generates:
@@ -134,7 +134,7 @@ class CCECodegen:
         Example:
             >>> from pypto.pypto_core import codegen
             >>> cg = codegen.CCECodegen()
-            >>> files = cg.Generate(program)
+            >>> files = cg.generate(program)
             >>> kernel_code = files["kernels/my_kernel.cpp"]
         """
 

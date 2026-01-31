@@ -57,7 +57,7 @@ class TestCCECodegenBasics:
         optimized_program = pm.run_passes(program)
 
         generator = codegen.CCECodegen()
-        files = generator.Generate(optimized_program)
+        files = generator.generate(optimized_program)
         kernel_name = list(optimized_program.functions.values())[0].name
         code = files["kernels/" + kernel_name + ".cpp"]
 
@@ -107,7 +107,7 @@ class TestControlFlowCodegen:
         func = f.get_result()
         program = ir.Program([func], "test_simple_for", ir.Span.unknown())
         generator = codegen.CCECodegen()
-        files = generator.Generate(program)
+        files = generator.generate(program)
         code = files["kernels/test_simple_for.cpp"]
 
         # Verify for loop structure
@@ -143,7 +143,7 @@ class TestControlFlowCodegen:
         func = f.get_result()
         program = ir.Program([func], "test_nested_for", ir.Span.unknown())
         generator = codegen.CCECodegen()
-        files = generator.Generate(program)
+        files = generator.generate(program)
         code = files["kernels/test_nested_for.cpp"]
 
         # Verify nested loop structure
@@ -174,7 +174,7 @@ class TestControlFlowCodegen:
         program = ir.Program([func], "test_if", ir.Span.unknown())
 
         generator = codegen.CCECodegen()
-        files = generator.Generate(program)
+        files = generator.generate(program)
         code = files["kernels/test_if.cpp"]
 
         # Verify if structure
@@ -212,7 +212,7 @@ class TestControlFlowCodegen:
         program = ir.Program([func], "test_if_else", ir.Span.unknown())
 
         generator = codegen.CCECodegen()
-        files = generator.Generate(program)
+        files = generator.generate(program)
         code = files["kernels/test_if_else.cpp"]
 
         # Verify if-else structure
