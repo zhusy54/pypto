@@ -9,13 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-<<<<<<<< HEAD:include/pypto/codegen/cce/code_generator.h
 #ifndef PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
 #define PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
-========
-#ifndef PYPTO_CODEGEN_CCE_CODEGEN_H_
-#define PYPTO_CODEGEN_CCE_CODEGEN_H_
->>>>>>>> 74a1840 (refactor(codegen): Rename CCE codegen to match PTOCodegen style):include/pypto/codegen/cce_codegen.h
 
 #include <map>
 #include <string>
@@ -219,8 +214,4 @@ class CCECodegen : public ir::IRVisitor {
 }  // namespace codegen
 }  // namespace pypto
 
-<<<<<<<< HEAD:include/pypto/codegen/cce/code_generator.h
 #endif  // PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
-========
-#endif  // PYPTO_CODEGEN_CCE_CODEGEN_H_
->>>>>>>> 74a1840 (refactor(codegen): Rename CCE codegen to match PTOCodegen style):include/pypto/codegen/cce_codegen.h

@@ -9,11 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-<<<<<<<< HEAD:src/codegen/cce/code_generator.cpp
 #include "pypto/codegen/cce/code_generator.h"
-========
-#include "pypto/codegen/cce_codegen.h"
->>>>>>>> 74a1840 (refactor(codegen): Rename CCE codegen to match PTOCodegen style):src/codegen/cce_codegen.cpp
 
 #include <map>
 #include <sstream>
@@ -28,7 +24,6 @@
 #include "pypto/ir/type.h"
 
 namespace pypto {
-
 namespace codegen {
 
 CCECodegen::CCECodegen() = default;
