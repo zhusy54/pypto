@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_CODEGEN_ORCHESTRATION_CODEGEN_H_
-#define PYPTO_CODEGEN_ORCHESTRATION_CODEGEN_H_
+#ifndef PYPTO_CODEGEN_ORCHESTRATION_ORCHESTRATION_CODEGEN_H_
+#define PYPTO_CODEGEN_ORCHESTRATION_ORCHESTRATION_CODEGEN_H_
 
 #include <string>
 
@@ -36,4 +36,4 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
 }  // namespace codegen
 }  // namespace pypto
 
-#endif  // PYPTO_CODEGEN_ORCHESTRATION_CODEGEN_H_
+#endif  // PYPTO_CODEGEN_ORCHESTRATION_ORCHESTRATION_CODEGEN_H_

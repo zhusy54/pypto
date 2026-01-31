@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/codegen/orchestration_codegen.h"
+#include "pypto/codegen/orchestration/orchestration_codegen.h"
 
 #include <map>
 #include <set>

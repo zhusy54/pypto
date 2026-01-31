@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
-#define PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
+#ifndef PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_
+#define PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_
 
 #include <map>
 #include <string>
@@ -214,4 +214,4 @@ class CCECodegen : public ir::IRVisitor {
 }  // namespace codegen
 }  // namespace pypto
 
-#endif  // PYPTO_CODEGEN_CCE_CODE_GENERATOR_H_
+#endif  // PYPTO_CODEGEN_CCE_CCE_CODEGEN_H_

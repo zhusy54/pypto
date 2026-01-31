@@ -16,7 +16,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include "pypto/codegen/cce/code_generator.h"
+#include "pypto/codegen/cce/cce_codegen.h"
 #include "pypto/codegen/cce/type_converter.h"
 #include "pypto/codegen/pto/pto_codegen.h"
 

@@ -9,14 +9,14 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/codegen/cce/code_generator.h"
+#include "pypto/codegen/cce/cce_codegen.h"
 
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
-#include "pypto/codegen/orchestration_codegen.h"
+#include "pypto/codegen/orchestration/orchestration_codegen.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
 #include "pypto/ir/program.h"
