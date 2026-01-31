@@ -255,8 +255,10 @@ def main():
     print("-" * 70)
 
     # Step 3: Compile (using high-level ir.compile API)
-    print("\n[3] Compiling with PassManager and PTOCodegen...")
-    output_dir = ir.compile(program, strategy=ir.OptimizationStrategy.Default, dump_passes=True)
+    print("\n[3] Compiling with PassManager and CCECodegen...")
+    output_dir = ir.compile(
+        program, strategy=ir.OptimizationStrategy.Default, dump_passes=True, codegen=ir.CodegenBackend.CCE
+    )
     print("✓ Compilation complete")
     print(f"✓ Output directory: {output_dir}")
 
