@@ -2045,47 +2045,6 @@ def python_print_type(type: Type, prefix: str = "pl") -> str:
         String representation of the Type
     """
 
-# ========== PTO Code Generator ==========
-class PTOCodegen:
-    """Code generator that transforms PyPTO IR to PTO assembly (.pto format).
-
-    Generates PTO ISA instructions from PyPTO IR, supporting:
-    - Tile operations (binary, unary, scalar) -> PTO instructions (VADD, VMUL, etc.)
-    - Control flow (for loops, if statements) -> FOR/ENDFOR, IF/ENDIF
-    - SSA-style variable naming with % prefix
-    - Proper type annotations (!pto.tile<...>, !pto.memref<...>)
-    """
-
-    def __init__(self) -> None:
-        """Create a new PTO code generator."""
-
-    def generate(self, program: Program) -> dict[str, str]:
-        """Generate code to separate files for each function.
-
-        Generates kernel functions and orchestration functions to separate files:
-        - Each kernel function -> kernels/<func_name>.pto (PTO assembly)
-        - Orchestration function -> <func_name>.cpp (C++ runtime code)
-
-        Note: A program should have exactly one orchestration function.
-
-        Args:
-            program: Input PyPTO IR Program
-
-        Returns:
-            Dictionary mapping file paths (with subdirectory) to file content
-
-        Example:
-            >>> codegen = ir.PTOCodegen()
-            >>> files = codegen.generate(program)
-            >>> for filepath, content in files.items():
-            ...     print(f"File: {filepath}")
-            ...     # filepath could be "kernels/kernel_add.pto" or "dynamic_softmax.cpp"
-            ...     full_path = os.path.join(output_dir, filepath)
-            ...     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            ...     with open(full_path, 'w') as f:
-            ...         f.write(content)
-        """
-
 def add(lhs: Expr, rhs: Expr, span: Span) -> Expr:
     """Addition operator (lhs + rhs)."""
 

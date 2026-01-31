@@ -13,6 +13,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from pypto.pypto_core import codegen as _codegen_core
 from pypto.pypto_core import ir as _ir_core
 
 from .pass_manager import OptimizationStrategy, PassManager
@@ -67,8 +68,8 @@ def compile(
     transformed_program = pm.run_passes(program, dump_ir=dump_passes, output_dir=output_dir)
 
     # Generate code files (orchestration + kernels)
-    codegen = _ir_core.PTOCodegen()
-    files = codegen.generate(transformed_program)  # type: ignore[arg-type]
+    pto_codegen = _codegen_core.PTOCodegen()
+    files = pto_codegen.generate(transformed_program)  # type: ignore[arg-type]
 
     # Save all generated files
     for filepath, content in files.items():

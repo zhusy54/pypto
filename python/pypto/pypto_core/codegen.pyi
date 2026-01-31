@@ -7,10 +7,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 # pylint: disable=unused-argument
-"""Code generation module for converting IR to pto-isa C++"""
+"""Code generation module for converting IR to pto-isa C++ (PTOCodegen, CCECodegen, TypeConverter)."""
 
 from pypto import DataType
-from pypto.pypto_core.ir import Function, MemorySpace, PipeType
+from pypto.pypto_core.ir import Function, MemorySpace, PipeType, Program
 
 class TypeConverter:
     """Utility for converting IR types to pto-isa C++ types"""
@@ -78,11 +78,45 @@ class TypeConverter:
             Stride type string with 5D padding
         """
 
-class CCECodegen:
-    """CCE code generator for converting PyPTO IR to pto-isa C++ code"""
+class PTOCodegen:
+    """Code generator that transforms PyPTO IR to PTO assembly (.pto format).
+
+    Generates PTO ISA instructions from PyPTO IR, supporting:
+    - Tile operations (binary, unary, scalar) -> PTO instructions (VADD, VMUL, etc.)
+    - Control flow (for loops, if statements) -> FOR/ENDFOR, IF/ENDIF
+    - SSA-style variable naming with % prefix
+    - Proper type annotations (!pto.tile<...>, !pto.memref<...>)
+    """
 
     def __init__(self) -> None:
-        """Create a code generator"""
+        """Create a new PTO code generator."""
+
+    def generate(self, program: Program) -> dict[str, str]:
+        """Generate code to separate files for each function.
+
+        Generates kernel functions and orchestration functions to separate files:
+        - Each kernel function -> kernels/<func_name>.pto (PTO assembly)
+        - Orchestration function -> <func_name>.cpp (C++ runtime code)
+
+        Note: A program should have exactly one orchestration function.
+
+        Args:
+            program: Input PyPTO IR Program
+
+        Returns:
+            Dictionary mapping file paths (with subdirectory) to file content
+
+        Example:
+            >>> from pypto.pypto_core import codegen
+            >>> cg = codegen.PTOCodegen()
+            >>> files = cg.generate(program)
+        """
+
+class CCECodegen:
+    """CCE code generator for converting PyPTO IR to pto-isa C++ code."""
+
+    def __init__(self) -> None:
+        """Create a code generator."""
 
     def Generate(self, func: Function) -> str:
         """Generate C++ code from a PyPTO IR function
@@ -92,9 +126,15 @@ class CCECodegen:
 
         Returns:
             Generated C++ code as a string
+
+        Example:
+            >>> from pypto.pypto_core import codegen
+            >>> cg = codegen.CCECodegen()
+            >>> cpp_code = cg.Generate(func)
         """
 
 __all__ = [
     "TypeConverter",
+    "PTOCodegen",
     "CCECodegen",
 ]

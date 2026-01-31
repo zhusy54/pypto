@@ -128,6 +128,13 @@ void VisitStmt_(const YieldStmtPtr& op);    // Yield values
 
 ## Usage Example
 
+**Python API** (unified in codegen module: `codegen.PTOCodegen()`, `codegen.CCECodegen()`):
+```python
+from pypto.pypto_core import codegen
+cg = codegen.CCECodegen()
+cpp_code = cg.Generate(func)
+```
+
 **C++ API:**
 ```cpp
 #include "pypto/codegen/cce_codegen.h"

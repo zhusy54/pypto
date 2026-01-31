@@ -74,7 +74,27 @@ void BindCodegen(nb::module_& m) {
            "Returns:\n"
            "    Stride type string with 5D padding");
 
-  // CCECodegen class for converting IR to C++ code
+  // PTOCodegen - IR to PTO assembly code generator (unified in codegen module)
+  nb::class_<PTOCodegen>(codegen_module, "PTOCodegen",
+                         "Code generator that transforms PyPTO IR to PTO assembly (.pto files). "
+                         "Generates PTO ISA instructions in SSA form with tile operations, control flow, "
+                         "and type annotations.")
+      .def(nb::init<>(), "Create a new PTO assembly code generator")
+      .def(
+          "generate",
+          [](PTOCodegen& self, const ProgramPtr& program) {
+            auto files_map = self.Generate(program);
+            nb::dict result;
+            for (const auto& pair : files_map) {
+              result[pair.first.c_str()] = pair.second;
+            }
+            return result;
+          },
+          nb::arg("program"),
+          "Generate code to separate files for each function. Returns a dictionary mapping file paths to "
+          "content. Kernel functions -> kernels/<func_name>.pto, orchestration -> <func_name>.cpp.");
+
+  // CCECodegen - CCE/pto-isa C++ code generator (unified in codegen module)
   nb::class_<CCECodegen>(codegen_module, "CCECodegen",
                          "CCE code generator for converting PyPTO IR to pto-isa C++ code")
       .def(nb::init<>(), "Create a code generator")
