@@ -612,6 +612,144 @@ void CCECodegen::VisitExpr_(const ir::CallPtr& op) {
     context_.RegisterPointer(var_name, dst_tensor_var);
     emitter_.EmitLine("auto " + var_name + " = " + dst_tensor_var + ";");
 
+  } else if (op->op_->name_ == "block.loadex") {
+    // block.loadex(tensor, num_ops, encoding_length, encoded_ops...)
+    CHECK(op->args_.size() >= 3) << "block.loadex requires at least 3 arguments: tensor, num_ops, encoding_length";
+
+    // Get source tensor variable (arg 0)
+    auto src_tensor_expr = op->args_[0];
+    auto src_tensor_var_ptr = std::dynamic_pointer_cast<const ir::Var>(src_tensor_expr);
+    CHECK(src_tensor_var_ptr != nullptr) << "block.loadex source tensor must be a Var";
+
+    std::string src_tensor_var = context_.GetVarName(src_tensor_var_ptr);
+
+    auto src_tensor_type = std::dynamic_pointer_cast<const ir::TensorType>(src_tensor_var_ptr->GetType());
+    CHECK(src_tensor_type != nullptr) << "block.loadex source must be TensorType";
+    INTERNAL_CHECK(src_tensor_type->shape_.size() >= 1) << "Tensor must be at least 1D";
+
+    // Calculate stride (width of last dimension)
+    std::string stride_expr;
+    if (src_tensor_type->shape_.size() == 1) {
+      stride_expr = "1";
+    } else {
+      auto stride_ir_expr = src_tensor_type->shape_[src_tensor_type->shape_.size() - 1];
+      VisitExpr(stride_ir_expr);
+      stride_expr = current_expr_value_;
+    }
+
+    // Extract num_ops and encoding_length (args[1], args[2])
+    auto num_ops_const = std::dynamic_pointer_cast<const ir::ConstInt>(op->args_[1]);
+    CHECK(num_ops_const) << "block.loadex num_ops must be ConstInt";
+    int num_ops = static_cast<int>(num_ops_const->value_);
+
+    auto encoding_length_const = std::dynamic_pointer_cast<const ir::ConstInt>(op->args_[2]);
+    CHECK(encoding_length_const) << "block.loadex encoding_length must be ConstInt";
+    int encoding_length = static_cast<int>(encoding_length_const->value_);
+
+    CHECK(op->args_.size() == static_cast<size_t>(3 + encoding_length))
+        << "block.loadex: expected " << (3 + encoding_length) << " arguments, got " << op->args_.size();
+
+    // Decode operations from encoded args
+    std::ostringstream ops_str_for_tloadex;
+    size_t pos = 3;  // Start after tensor, num_ops, encoding_length
+
+    // Variables for load offset computation
+    std::string row_offset = "0";
+    std::string col_offset = "0";
+    int ops_to_process = num_ops;  // Number of ops to pass to TLOADEX
+
+    for (int i = 0; i < num_ops; ++i) {
+      // Read op_type
+      CHECK(pos < op->args_.size()) << "block.loadex: insufficient encoded data";
+      VisitExpr(op->args_[pos++]);
+      std::string op_type = current_expr_value_;
+      int op_type_val = std::stoi(op_type);
+
+      // Read param_count
+      CHECK(pos < op->args_.size()) << "block.loadex: missing param_count";
+      auto param_count_const = std::dynamic_pointer_cast<const ir::ConstInt>(op->args_[pos++]);
+      CHECK(param_count_const) << "block.loadex param_count must be ConstInt";
+      int param_count = static_cast<int>(param_count_const->value_);
+
+      // Read parameters
+      std::vector<std::string> params;
+      for (int j = 0; j < param_count; ++j) {
+        CHECK(pos < op->args_.size()) << "block.loadex: insufficient parameters";
+        VisitExpr(op->args_[pos++]);
+        params.push_back(current_expr_value_);
+      }
+
+      // Build parameter string
+      if (i == 0 && op_type_val == 0) {
+        // First operation is VIEW - use it for loading, don't add to TLOADEX ops
+        int shape_ndim = param_count / 2;
+        row_offset = params[shape_ndim];      // First offset
+        col_offset = params[shape_ndim + 1];  // Second offset
+        ops_to_process--;  // This VIEW is for loading, not for TLOADEX
+      } else {
+        // Not the first VIEW - add to TLOADEX operations
+        if (op_type_val == 0) {
+          // VIEW
+          int shape_ndim = param_count / 2;
+
+          // Add to ops_str_for_tloadex with inline comments
+          if (ops_str_for_tloadex.tellp() > 0) ops_str_for_tloadex << ", ";
+          ops_str_for_tloadex << "/*VIEW*/" << op_type;
+          if (param_count > 0) {
+            ops_str_for_tloadex << ", /*shape:*/";
+            for (int j = 0; j < shape_ndim; ++j) {
+              if (j > 0) ops_str_for_tloadex << ", ";
+              ops_str_for_tloadex << params[j];
+            }
+            if (shape_ndim < param_count) {
+              ops_str_for_tloadex << ", /*offset:*/";
+              for (int j = shape_ndim; j < param_count; ++j) {
+                if (j > shape_ndim) ops_str_for_tloadex << ", ";
+                ops_str_for_tloadex << params[j];
+              }
+            }
+          }
+        } else if (op_type_val == 1) {
+          // RESHAPE
+          // Add to ops_str_for_tloadex with inline comments
+          if (ops_str_for_tloadex.tellp() > 0) ops_str_for_tloadex << ", ";
+          ops_str_for_tloadex << "/*RESHAPE*/" << op_type;
+          if (param_count > 0) {
+            ops_str_for_tloadex << ", /*shape:*/";
+            for (int j = 0; j < param_count; ++j) {
+              if (j > 0) ops_str_for_tloadex << ", ";
+              ops_str_for_tloadex << params[j];
+            }
+          }
+        } else if (op_type_val == 2) {
+          // TRANSPOSE
+          // Add to ops_str_for_tloadex with inline comments
+          if (ops_str_for_tloadex.tellp() > 0) ops_str_for_tloadex << ", ";
+          ops_str_for_tloadex << "/*TRANSPOSE*/" << op_type;
+          if (param_count >= 2) {
+            ops_str_for_tloadex << ", /*axis:*/" << params[0] << ", " << params[1];
+          }
+        }
+      }
+    }
+
+    // Compute offset
+    std::string offset = row_offset + " * " + stride_expr + " + " + col_offset;
+
+    // Emit TASSIGN to set the start address
+    std::string raw_ptr = context_.GetPointer(src_tensor_var);
+    emitter_.EmitLine("TASSIGN(" + src_tensor_var + ", " + raw_ptr + " + " + offset + ");");
+
+    // Emit TLOADEX instruction
+    if (ops_to_process > 0) {
+      emitter_.EmitLine(mapping.isa_name + "(" + var_name + ", " + src_tensor_var + ", " +
+                        ops_str_for_tloadex.str() + ");");
+    } else {
+      // No transformation operations, just load
+      emitter_.EmitLine(mapping.isa_name + "(" + var_name + ", " + src_tensor_var + ");");
+    }
+
+
   } else {
     // Element-wise operations: TADD(dst, src0, src1) or TSQRT(dst, src) etc.
     std::ostringstream args_str;

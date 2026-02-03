@@ -810,5 +810,129 @@ class TestTileTransformOps:
         assert ir.is_op_registered("block.transpose")
 
 
+class TestBlockLoadexOp:
+    """Tests for block.loadex operation."""
+
+    def test_loadex_single_transpose(self):
+        """Test loadex with single transpose operation."""
+        span = ir.Span.unknown()
+
+        dim8 = ir.ConstInt(8, DataType.INT32, span)
+        dim16 = ir.ConstInt(16, DataType.INT32, span)
+        tensor_type = ir.TensorType([dim8, dim16], DataType.FP16)
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [(LayoutOpType.TRANSPOSE, 0, 1)]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+        assert call.type.dtype == DataType.FP16
+
+    def test_loadex_single_reshape(self):
+        """Test loadex with single reshape operation."""
+        span = ir.Span.unknown()
+
+        dim4 = ir.ConstInt(4, DataType.INT32, span)
+        dim8 = ir.ConstInt(8, DataType.INT32, span)
+        tensor_type = ir.TensorType([dim4, dim8], DataType.FP32)
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [(LayoutOpType.RESHAPE, [8, 4])]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+        assert call.type.dtype == DataType.FP32
+
+    def test_loadex_single_view(self):
+        """Test loadex with single view operation."""
+        span = ir.Span.unknown()
+
+        dim16 = ir.ConstInt(16, DataType.INT32, span)
+        dim32 = ir.ConstInt(32, DataType.INT32, span)
+        tensor_type = ir.TensorType([dim16, dim32], DataType.FP16)
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [(LayoutOpType.VIEW, [8, 16], [0, 0])]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+        assert call.type.dtype == DataType.FP16
+
+    def test_loadex_transpose_reshape(self):
+        """Test loadex with transpose followed by reshape."""
+        span = ir.Span.unknown()
+
+        dim8 = ir.ConstInt(8, DataType.INT32, span)
+        dim16 = ir.ConstInt(16, DataType.INT32, span)
+        tensor_type = ir.TensorType([dim8, dim16], DataType.FP32)
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [(LayoutOpType.TRANSPOSE, 0, 1), (LayoutOpType.RESHAPE, [32, 4])]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+        assert call.type.dtype == DataType.FP32
+
+    def test_loadex_view_transpose(self):
+        """Test loadex with view followed by transpose."""
+        span = ir.Span.unknown()
+
+        tensor_type = ir.TensorType(
+            [ir.ConstInt(16, DataType.INT32, span), ir.ConstInt(32, DataType.INT32, span)], DataType.FP16
+        )
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [(LayoutOpType.VIEW, [8, 16], [0, 0]), (LayoutOpType.TRANSPOSE, 0, 1)]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+
+    def test_loadex_three_ops(self):
+        """Test loadex with three operations."""
+        span = ir.Span.unknown()
+
+        tensor_type = ir.TensorType(
+            [ir.ConstInt(16, DataType.INT32, span), ir.ConstInt(32, DataType.INT32, span)], DataType.FP32
+        )
+        tensor_var = ir.Var("tensor", tensor_type, span)
+
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        ops = [
+            (LayoutOpType.VIEW, [8, 16], [0, 0]),
+            (LayoutOpType.TRANSPOSE, 0, 1),
+            (LayoutOpType.RESHAPE, [32, 4]),
+        ]
+        call = block.loadex(tensor_var, ops)
+
+        assert isinstance(call, ir.Call)
+        assert call.op.name == "block.loadex"
+        assert isinstance(call.type, ir.TileType)
+
+    def test_loadex_registered(self):
+        """Test that loadex operator is registered."""
+        assert ir.is_op_registered("block.loadex")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

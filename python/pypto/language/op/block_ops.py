@@ -425,3 +425,43 @@ def transpose(tile: Tile, axis1: int, axis2: int) -> Tile:
     tile_expr = tile.unwrap()
     call_expr = _ir_ops.transpose(tile_expr, axis1, axis2)
     return Tile(expr=call_expr)
+
+
+def loadex(
+    tensor: Tensor,
+    ops: List[tuple],
+    target_memory: int = 1,
+) -> Tile:
+    """Load data from tensor with layout transformations applied.
+
+    This operation combines loading from tensor memory with layout transformations
+    (view, reshape, transpose) into a single optimized operation.
+
+    Args:
+        tensor: Source tensor
+        ops: List of layout operations (same format as IR layer).
+             Each operation is a tuple:
+             - VIEW: (LayoutOpType.VIEW, [h, w], [off_h, off_w])
+                    When used as first op: specifies region to load from tensor
+                    When used later: specifies slice within tile
+             - RESHAPE: (LayoutOpType.RESHAPE, [new_h, new_w])
+             - TRANSPOSE: (LayoutOpType.TRANSPOSE, axis1, axis2)
+
+             If first op is not VIEW, the entire tensor will be loaded.
+        target_memory: Target memory space (1=UB default, 2=L1)
+
+    Returns:
+        Tile wrapping the loadex operation
+
+    Example:
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        # Load [16, 32] region from (0, 0) and apply transpose
+        ops = [
+            (LayoutOpType.VIEW, [16, 32], [0, 0]),  # Load region
+            (LayoutOpType.TRANSPOSE, 0, 1),          # Transform
+        ]
+        result_tile = pl.block.loadex(tensor, ops)
+    """
+    call_expr = _ir_ops.loadex(tensor.unwrap(), ops, target_memory)
+    return Tile(expr=call_expr)

@@ -27,6 +27,7 @@ void ISAMapper::InitializeMappings() {
   // Memory operations
   mappings_["block.load"] = {"TLOAD"};
   mappings_["block.store"] = {"TSTORE"};
+  mappings_["block.loadex"] = {"TLOADEX"};
 
   // Element-wise binary operations (Tile + Tile)
   mappings_["block.add"] = {"TADD"};

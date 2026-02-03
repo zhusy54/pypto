@@ -14,6 +14,7 @@ These operations include memory operations (load, store), element-wise operation
 unary operations, and reduction operations.
 """
 
+from enum import IntEnum
 from typing import Any, Dict, List, Optional, Union
 
 from pypto.pypto_core import DataType
@@ -21,6 +22,18 @@ from pypto.pypto_core import ir as _ir_core
 from pypto.pypto_core.ir import Call, ConstInt, Expr, Span
 
 from ..utils import _get_span_or_capture, _normalize_expr
+
+
+class LayoutOpType(IntEnum):
+    """Layout transformation operation types for block.loadex.
+
+    Enum values must match C++ LayoutOpTypeEnum in transform.cpp.
+    """
+
+    VIEW = 0
+    RESHAPE = 1
+    TRANSPOSE = 2
+
 
 # ============================================================================
 # Memory Operations
@@ -654,3 +667,157 @@ def transpose(tile: Expr, axis1: int, axis2: int, span: Optional[Span] = None) -
     args = [tile, axis1_expr, axis2_expr]
 
     return _ir_core.create_op_call("block.transpose", args, {}, actual_span)
+
+
+def loadex(
+    tensor: Expr,
+    ops: List[tuple],
+    target_memory: int = 1,
+    span: Optional[Span] = None,
+) -> Call:
+    """Load data from tensor with layout transformations applied.
+
+    This operation combines loading from tensor memory with layout transformations
+    (view, reshape, transpose) into a single optimized operation. The first operation
+    in the ops list determines what region to load from the tensor.
+
+    Args:
+        tensor: Source tensor (TensorType)
+        ops: List of layout operations. Each operation is a tuple:
+             - VIEW: (LayoutOpType.VIEW, [h, w], [off_h, off_w])
+                    When used as first op: specifies region to load from tensor
+                    When used later: specifies slice within tile
+             - RESHAPE: (LayoutOpType.RESHAPE, [new_h, new_w])
+             - TRANSPOSE: (LayoutOpType.TRANSPOSE, axis1, axis2)
+
+             If first op is not VIEW, the entire tensor will be loaded.
+        target_memory: Target memory space for the output tile.
+                     1=UB (default), 2=L1.
+        span: Optional source span for debugging (auto-captured if not provided)
+
+    Returns:
+        Call expression that returns a TileType with transformed data
+
+    Raises:
+        ValueError: If ops list is empty, exceeds 8 operations, or contains invalid operation types
+
+    Example:
+        from pypto.ir.op.block_ops import LayoutOpType
+
+        # Load [16, 32] region from (0, 0) and apply transpose
+        ops = [
+            (LayoutOpType.VIEW, [16, 32], [0, 0]),  # Load region
+            (LayoutOpType.TRANSPOSE, 0, 1),         # [16, 32] -> [32, 16]
+        ]
+        tile = block.loadex(input_tensor, ops)
+
+        # Load entire tensor and transpose
+        ops = [(LayoutOpType.TRANSPOSE, 0, 1)]
+        tile = block.loadex(input_tensor, ops)
+    """
+    # Validate target_memory
+    if target_memory not in (1, 2):
+        raise ValueError(f"target_memory for block.loadex must be 1 (UB) or 2 (L1), got {target_memory}")
+
+    actual_span = _get_span_or_capture(span)
+
+    # Validate ops list
+    if len(ops) == 0:
+        raise ValueError("block.loadex requires at least one operation")
+    if len(ops) > 8:
+        raise ValueError(f"block.loadex supports at most 8 operations, got {len(ops)}")
+
+    # Build args: tensor, num_ops
+    args = [tensor]
+    args.append(ConstInt(len(ops), DataType.INT32, actual_span))
+
+    # Encode operations into flattened array
+    encoded_data = []
+    for i, op in enumerate(ops):
+        if not isinstance(op, tuple) or len(op) < 2:
+            raise ValueError(f"Operation {i} must be a tuple with at least 2 elements (op_type, ...)")
+
+        op_type = op[0]
+        if not isinstance(op_type, LayoutOpType):
+            raise ValueError(f"Operation {i} type must be LayoutOpType, got {type(op_type)}")
+
+        encoded_data.append(ConstInt(int(op_type), DataType.INT32, actual_span))
+
+        if op_type == LayoutOpType.VIEW:
+            # VIEW: (op_type, shape_list, offset_list)
+            if len(op) != 3:
+                raise ValueError(
+                    f"VIEW operation {i} requires 3 elements (op_type, shape, offset), got {len(op)}"
+                )
+
+            shape = op[1]
+            offset = op[2]
+
+            if not isinstance(shape, list) or not isinstance(offset, list):
+                raise ValueError(f"VIEW operation {i}: shape and offset must be lists")
+
+            if len(shape) != len(offset):
+                raise ValueError(
+                    f"VIEW operation {i}: shape and offset must have same length, got {len(shape)} and {len(offset)}"
+                )
+
+            param_count = len(shape) + len(offset)
+            encoded_data.append(ConstInt(param_count, DataType.INT32, actual_span))
+
+            # Encode shape dimensions
+            for dim in shape:
+                encoded_data.append(_normalize_expr(dim, actual_span, int_dtype=DataType.INT32))
+
+            # Encode offset dimensions
+            for off in offset:
+                encoded_data.append(_normalize_expr(off, actual_span, int_dtype=DataType.INT32))
+
+        elif op_type == LayoutOpType.RESHAPE:
+            # RESHAPE: (op_type, shape_list)
+            if len(op) != 2:
+                raise ValueError(f"RESHAPE operation {i} requires 2 elements (op_type, shape), got {len(op)}")
+
+            shape = op[1]
+
+            if not isinstance(shape, list):
+                raise ValueError(f"RESHAPE operation {i}: shape must be a list")
+
+            param_count = len(shape)
+            encoded_data.append(ConstInt(param_count, DataType.INT32, actual_span))
+
+            # Encode shape dimensions
+            for dim in shape:
+                encoded_data.append(_normalize_expr(dim, actual_span, int_dtype=DataType.INT32))
+
+        elif op_type == LayoutOpType.TRANSPOSE:
+            # TRANSPOSE: (op_type, axis1, axis2)
+            if len(op) != 3:
+                raise ValueError(
+                    f"TRANSPOSE operation {i} requires 3 elements (op_type, axis1, axis2), got {len(op)}"
+                )
+
+            axis1 = op[1]
+            axis2 = op[2]
+
+            if not isinstance(axis1, int) or not isinstance(axis2, int):
+                raise ValueError(f"TRANSPOSE operation {i}: axis1 and axis2 must be integers")
+
+            param_count = 2
+            encoded_data.append(ConstInt(param_count, DataType.INT32, actual_span))
+            encoded_data.append(ConstInt(axis1, DataType.INT32, actual_span))
+            encoded_data.append(ConstInt(axis2, DataType.INT32, actual_span))
+
+        else:
+            raise ValueError(f"Unknown operation type: {op_type}")
+
+    # Add encoding length
+    encoding_length = len(encoded_data)
+    args.append(ConstInt(encoding_length, DataType.INT32, actual_span))
+
+    # Add encoded data
+    args.extend(encoded_data)
+
+    # Build kwargs dict for attributes
+    kwargs: Dict[str, Any] = {"target_memory": target_memory}
+
+    return _ir_core.create_op_call("block.loadex", args, kwargs, actual_span)
