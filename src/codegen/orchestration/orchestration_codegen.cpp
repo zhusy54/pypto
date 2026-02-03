@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/ir/expr.h"
 #include "pypto/ir/function.h"
@@ -35,6 +36,48 @@ namespace codegen {
 namespace {
 
 using namespace pypto::ir;  // NOLINT(build/namespaces)
+
+// Map IR DataType to C++ fundamental type name (for union-based conversion to uint64_t).
+std::string DataTypeToCppType(const pypto::DataType& dtype) {
+  using pypto::DataType;
+  if (dtype == DataType::BOOL) return "bool";
+  if (dtype == DataType::INT4 || dtype == DataType::INT8) return "int8_t";
+  if (dtype == DataType::INT16) return "int16_t";
+  if (dtype == DataType::INT32) return "int32_t";
+  if (dtype == DataType::INT64) return "int64_t";
+  if (dtype == DataType::UINT4 || dtype == DataType::UINT8) return "uint8_t";
+  if (dtype == DataType::UINT16) return "uint16_t";
+  if (dtype == DataType::UINT32) return "uint32_t";
+  if (dtype == DataType::UINT64) return "uint64_t";
+  if (dtype == DataType::FP16 || dtype == DataType::BF16 || dtype == DataType::FP32 ||
+      dtype == DataType::FP4 || dtype == DataType::FP8E4M3FN || dtype == DataType::FP8E5M2 ||
+      dtype == DataType::HF4 || dtype == DataType::HF8) {
+    return "float";
+  }
+  // FP64 or unknown float -> double
+  return "double";
+}
+
+// Format scalar constant as C++ literal/expression for assignment to the given C++ type.
+std::string FormatConstIntValue(const ConstIntPtr& c, const std::string& cpp_type) {
+  int64_t v = c->value_;
+  if (cpp_type == "uint8_t" || cpp_type == "uint16_t" || cpp_type == "uint32_t" ||
+      cpp_type == "uint64_t") {
+    return "static_cast<" + cpp_type + ">(" + std::to_string(v) + ")";
+  }
+  if (cpp_type == "int8_t" || cpp_type == "int16_t" || cpp_type == "int32_t") {
+    return "static_cast<" + cpp_type + ">(" + std::to_string(v) + ")";
+  }
+  return std::to_string(v);  // int64_t
+}
+
+std::string FormatConstFloatValue(const ConstFloatPtr& c, const std::string& cpp_type) {
+  double v = c->value_;
+  if (cpp_type == "float") {
+    return std::to_string(static_cast<float>(v));
+  }
+  return std::to_string(v);  // double
+}
 
 bool FunctionReturnsTensor(const FunctionPtr& func) {
   if (func->return_types_.empty()) {
@@ -214,6 +257,7 @@ std::string GenerateDeviceMemoryAllocationCode(const ProgramPtr& program, const 
 }
 
 std::string GenerateSingleTaskCode(const std::string& task_var, const std::vector<std::string>& task_args,
+                                   const std::vector<std::string>& task_arg_cpp_types,
                                    const std::string& callee_name, int func_id, CoreType core_type,
                                    int task_counter) {
   std::ostringstream oss;
@@ -221,7 +265,15 @@ std::string GenerateSingleTaskCode(const std::string& task_var, const std::vecto
   oss << "    // Task " << task_counter << ": Call " << callee_name << "\n";
   oss << "    uint64_t args_" << task_var << "[" << task_args.size() << "];\n";
   for (size_t i = 0; i < task_args.size(); ++i) {
-    oss << "    args_" << task_var << "[" << i << "] = reinterpret_cast<uint64_t>(" << task_args[i] << ");\n";
+    const std::string& cpp_type = task_arg_cpp_types[i];
+    const std::string& value = task_args[i];
+    if (cpp_type == "void*") {
+      oss << "    { union { void* p; uint64_t u; } _u; _u.p = " << value << "; args_" << task_var
+          << "[" << i << "] = _u.u; }\n";
+    } else {
+      oss << "    { union { " << cpp_type << " v; uint64_t u; } _u; _u.v = " << value << "; args_"
+          << task_var << "[" << i << "] = _u.u; }\n";
+    }
   }
   oss << "    int " << task_var << " = runtime->add_task(args_" << task_var << ", " << task_args.size()
       << ", " << func_id << ", " << static_cast<int>(core_type) << ");\n\n";
@@ -416,6 +468,7 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
 
   std::string return_var_name = info_collector.return_var;
 
+  oss << "#include <cstdint>\n\n";
   oss << "extern \"C\" {\n\n";
   oss << GenerateOrchestrationSignature(func) << " {\n";
   oss << GenerateArgumentValidationCode(func);
@@ -479,29 +532,42 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
     }
 
     std::vector<std::string> task_args;
+    std::vector<std::string> task_arg_cpp_types;
     for (const auto& arg : call->args_) {
       if (auto var = As<Var>(arg)) {
-        task_args.push_back("dev_" + var->name_);
+        task_args.emplace_back("dev_" + var->name_);
+        task_arg_cpp_types.emplace_back("void*");
       } else if (auto const_int = As<ConstInt>(arg)) {
-        task_args.push_back(std::to_string(const_int->value_));
+        pypto::DataType dtype = const_int->dtype();
+        std::string cpp_type = DataTypeToCppType(dtype);
+        task_arg_cpp_types.emplace_back(cpp_type);
+        task_args.emplace_back(FormatConstIntValue(const_int, cpp_type));
       } else if (auto const_float = As<ConstFloat>(arg)) {
-        task_args.push_back(std::to_string(const_float->value_));
+        pypto::DataType dtype = const_float->dtype();
+        std::string cpp_type = DataTypeToCppType(dtype);
+        task_arg_cpp_types.emplace_back(cpp_type);
+        task_args.emplace_back(FormatConstFloatValue(const_float, cpp_type));
+      } else if (auto const_bool = As<ConstBool>(arg)) {
+        task_arg_cpp_types.emplace_back("bool");
+        task_args.emplace_back(const_bool->value_ ? "true" : "false");
       }
     }
 
     if (!result_var.empty()) {
       if (result_var == return_var_name && has_tensor_return) {
-        task_args.push_back("dev_" + output_tensor_name);
+        task_args.emplace_back("dev_" + output_tensor_name);
       } else {
-        task_args.push_back("dev_" + result_var);
+        task_args.emplace_back("dev_" + result_var);
       }
+      task_arg_cpp_types.emplace_back("void*");
     }
 
     std::string task_var = "t" + std::to_string(task_counter);
     task_vars.push_back(task_var);
     call_to_task[call.get()] = task_counter;
 
-    oss << GenerateSingleTaskCode(task_var, task_args, callee_name, func_id, core_type, task_counter);
+    oss << GenerateSingleTaskCode(task_var, task_args, task_arg_cpp_types, callee_name, func_id,
+                                  core_type, task_counter);
 
     task_counter++;
   }
