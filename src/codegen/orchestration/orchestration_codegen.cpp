@@ -268,8 +268,8 @@ std::string GenerateSingleTaskCode(const std::string& task_var, const std::vecto
     const std::string& cpp_type = task_arg_cpp_types[i];
     const std::string& value = task_args[i];
     if (cpp_type == "void*") {
-      oss << "    { union { void* p; uint64_t u; } _u; _u.p = " << value << "; args_" << task_var
-          << "[" << i << "] = _u.u; }\n";
+      oss << "    args_" << task_var << "[" << i << "] = reinterpret_cast<uint64_t>(" << value
+          << ");\n";
     } else {
       oss << "    { union { " << cpp_type << " v; uint64_t u; } _u; _u.v = " << value << "; args_"
           << task_var << "[" << i << "] = _u.u; }\n";
