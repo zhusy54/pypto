@@ -117,10 +117,42 @@ std::pair<std::string, std::string> GenerateArgumentExtractionCode(
   return {oss.str(), output_tensor_name};
 }
 
-std::string GenerateDeviceMemoryAllocationCode(const FunctionPtr& func,
+std::string CalculateTensorSize(const TensorTypePtr& tensor_type) {
+  std::ostringstream oss;
+
+  // Calculate total number of elements by multiplying all dimensions
+  bool first = true;
+  for (const auto& dim : tensor_type->shape_) {
+    if (auto const_int = As<ConstInt>(dim)) {
+      if (first) {
+        oss << const_int->value_;
+        first = false;
+      } else {
+        oss << " * " << const_int->value_;
+      }
+    } else {
+      throw RuntimeError("Orchestration codegen requires constant tensor shapes");
+    }
+  }
+
+  // If shape is empty, it's a scalar (1 element)
+  if (first) {
+    oss << "1";
+  }
+
+  // Multiply by element size in bytes
+  size_t element_bits = tensor_type->dtype_.GetBit();
+  size_t element_bytes = (element_bits + 7) / 8;  // Round up to nearest byte
+  oss << " * " << element_bytes;
+
+  return oss.str();
+}
+
+std::string GenerateDeviceMemoryAllocationCode(const ProgramPtr& program, const FunctionPtr& func,
                                                const std::set<std::string>& output_tensors,
                                                bool has_tensor_return, const std::string& output_tensor_name,
-                                               const std::set<std::string>& intermediate_tensors) {
+                                               const std::set<std::string>& intermediate_tensors,
+                                               const std::map<std::string, AssignStmtPtr>& output_tensor_assigns) {
   std::ostringstream oss;
 
   oss << "    // Allocate device memory for parameters\n";
@@ -151,8 +183,29 @@ std::string GenerateDeviceMemoryAllocationCode(const FunctionPtr& func,
   if (!intermediate_tensors.empty()) {
     oss << "    // Allocate device memory for intermediate tensors\n";
     for (const auto& tensor_name : intermediate_tensors) {
-      std::string size_var = "size_" + tensor_name;
-      oss << "    void* dev_" << tensor_name << " = runtime->host_api.device_malloc(" << size_var << ");\n";
+      // Get the AssignStmt to find the Call
+      auto it = output_tensor_assigns.find(tensor_name);
+      CHECK(it != output_tensor_assigns.end()) << "Missing assignment info for intermediate tensor: " << tensor_name;
+
+      // Get the Call expression to find the callee function
+      auto call = As<Call>(it->second->value_);
+      CHECK(call) << "Intermediate tensor assignment must be from a Call: " << tensor_name;
+
+      // Find the called function in the program
+      std::string callee_name = call->op_->name_;
+      FunctionPtr callee_func = program->GetFunction(callee_name);
+      CHECK(callee_func) << "Cannot find called function: " << callee_name;
+
+      // Get the return type from the called function
+      CHECK(!callee_func->return_types_.empty()) << "Function " << callee_name << " has no return type";
+      auto tensor_type = As<TensorType>(callee_func->return_types_[0]);
+      CHECK(tensor_type) << "Function " << callee_name << " must return TensorType, got "
+                         << callee_func->return_types_[0]->TypeName();
+
+      std::string size_expr = CalculateTensorSize(tensor_type);
+      oss << "    size_t size_" << tensor_name << " = " << size_expr << ";\n";
+      oss << "    void* dev_" << tensor_name << " = runtime->host_api.device_malloc(size_" << tensor_name
+          << ");\n";
     }
     oss << "\n";
   }
@@ -333,6 +386,7 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
     std::set<std::string> output_tensors;
     std::vector<CallPtr> function_calls;
     std::map<const Call*, std::string> call_to_result_var;
+    std::map<std::string, AssignStmtPtr> output_tensor_assigns;  // Store AssignStmt for type info
 
     void VisitStmt_(const ReturnStmtPtr& ret) override {
       if (!ret->value_.empty()) {
@@ -347,6 +401,7 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
       if (auto call = As<Call>(assign->value_)) {
         output_tensors.insert(assign->var_->name_);
         call_to_result_var[call.get()] = assign->var_->name_;
+        output_tensor_assigns[assign->var_->name_] = assign;
 
         if (call->op_->name_.find("block.") != 0) {
           function_calls.push_back(call);
@@ -382,8 +437,8 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
     }
   }
 
-  oss << GenerateDeviceMemoryAllocationCode(func, output_tensors, has_tensor_return, output_tensor_name,
-                                            intermediate_tensors);
+  oss << GenerateDeviceMemoryAllocationCode(program, func, output_tensors, has_tensor_return, output_tensor_name,
+                                            intermediate_tensors, info_collector.output_tensor_assigns);
 
   const std::vector<CallPtr>& call_ops = info_collector.function_calls;
 
