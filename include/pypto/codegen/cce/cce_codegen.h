@@ -54,6 +54,52 @@ class CCECodegen : public ir::IRVisitor {
    */
   [[nodiscard]] std::map<std::string, std::string> Generate(const ir::ProgramPtr& program);
 
+  // Public helper methods for operator codegen functions
+
+  /**
+   * @brief Get the current target variable name for assignment
+   *
+   * Used by codegen functions to know where to store their result.
+   *
+   * @return Current target variable name
+   */
+  std::string GetCurrentTargetVar() const { return current_target_var_; }
+
+  /**
+   * @brief Visit an expression and get its inline value
+   *
+   * Visits the expression and returns the resulting inline C++ code.
+   * For scalar expressions, returns inline value; for operations,
+   * returns variable name.
+   *
+   * @param expr Expression to visit
+   * @return Inline C++ code for the expression
+   */
+  std::string VisitAndGetValue(const ir::ExprPtr& expr);
+
+  /**
+   * @brief Get variable name for a Var
+   *
+   * @param var The IR Var
+   * @return C++ variable name
+   */
+  std::string GetVarName(const ir::VarPtr& var);
+
+  /**
+   * @brief Get pointer name for a variable
+   *
+   * @param var_name Variable name
+   * @return Pointer name
+   */
+  std::string GetPointer(const std::string& var_name);
+
+  /**
+   * @brief Emit a line of C++ code
+   *
+   * @param line Line of code to emit
+   */
+  void EmitLine(const std::string& line);
+
  protected:
   // Override visitor methods for code generation - Statements
   void VisitStmt_(const ir::AssignStmtPtr& op) override;

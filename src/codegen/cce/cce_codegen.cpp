@@ -19,6 +19,7 @@
 #include "pypto/codegen/orchestration/orchestration_codegen.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
+#include "pypto/ir/op_registry.h"
 #include "pypto/ir/program.h"
 #include "pypto/ir/scalar_expr.h"
 #include "pypto/ir/type.h"
@@ -559,11 +560,41 @@ void CCECodegen::VisitExpr_(const ir::TupleGetItemExprPtr& op) {
   current_expr_value_ = tuple_name + "[" + std::to_string(op->index_) + "]";
 }
 
+// ========================================================================
+// Public Helper Methods for Operator Codegen Functions
+// ========================================================================
+
+std::string CCECodegen::VisitAndGetValue(const ir::ExprPtr& expr) {
+  VisitExpr(expr);
+  return current_expr_value_;
+}
+
+std::string CCECodegen::GetVarName(const ir::VarPtr& var) { return context_.GetVarName(var); }
+
+std::string CCECodegen::GetPointer(const std::string& var_name) { return context_.GetPointer(var_name); }
+
+void CCECodegen::EmitLine(const std::string& line) { emitter_.EmitLine(line); }
+
+// ========================================================================
+// Call Expression Visitor (uses operator registry codegen functions)
+// ========================================================================
+
 void CCECodegen::VisitExpr_(const ir::CallPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null Call";
   INTERNAL_CHECK(!current_target_var_.empty()) << "Internal error: Call without assignment target";
 
-  // Use existing call handling logic (statement-emitting mode)
+  // Try to use registered codegen function first
+  const auto& op_entry = ir::OpRegistry::GetInstance().GetEntry(op->op_->name_);
+  if (op_entry.HasCCECodegen()) {
+    // New path: use registered codegen function
+    const auto& codegen_func = op_entry.GetCodegenCCE();
+    std::string result = codegen_func(op, *this);
+    current_expr_value_ = result;
+    return;
+  }
+
+  // Fallback to old ISAMapper path for operators not yet migrated
+  // TODO(refactor): Remove this fallback once all operators are migrated
   std::string var_name = current_target_var_;
 
   auto mapping_opt = isa_mapper_.GetMapping(op->op_->name_, {});

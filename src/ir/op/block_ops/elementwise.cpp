@@ -21,9 +21,11 @@
  */
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "pypto/codegen/cce/cce_codegen.h"
 #include "pypto/core/logging.h"
 #include "pypto/ir/kind_traits.h"
 #include "pypto/ir/op_registry.h"
@@ -91,6 +93,20 @@ TypePtr DeduceBlockOpScalarBinaryType(const std::vector<ExprPtr>& args,
 // Registration Function for Block Element-wise Operations
 // ============================================================================
 
+// Helper lambda factory for binary elementwise operations
+auto MakeBinaryElementwiseCodegenCCE(const std::string& isa_name) {
+  return [isa_name](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
+    std::string target_var = codegen.GetCurrentTargetVar();
+    std::ostringstream args_str;
+    args_str << target_var;
+    for (const auto& arg : op->args_) {
+      args_str << ", " << codegen.VisitAndGetValue(arg);
+    }
+    codegen.EmitLine(isa_name + "(" + args_str.str() + ");");
+    return target_var;
+  };
+}
+
 REGISTER_OP("block.mul")
     .set_op_category("BlockOp")
     .set_description("Element-wise multiplication of two tiles with broadcasting")
@@ -100,7 +116,8 @@ REGISTER_OP("block.mul")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpElementwiseBinaryType(args, kwargs, "block.mul");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TMUL"));
 
 REGISTER_OP("block.add")
     .set_op_category("BlockOp")
@@ -111,7 +128,8 @@ REGISTER_OP("block.add")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpElementwiseBinaryType(args, kwargs, "block.add");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TADD"));
 
 REGISTER_OP("block.div")
     .set_op_category("BlockOp")
@@ -122,7 +140,8 @@ REGISTER_OP("block.div")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpElementwiseBinaryType(args, kwargs, "block.div");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TDIV"));
 
 REGISTER_OP("block.sub")
     .set_op_category("BlockOp")
@@ -133,7 +152,8 @@ REGISTER_OP("block.sub")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpElementwiseBinaryType(args, kwargs, "block.sub");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TSUB"));
 
 REGISTER_OP("block.maximum")
     .set_op_category("BlockOp")
@@ -144,7 +164,8 @@ REGISTER_OP("block.maximum")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpElementwiseBinaryType(args, kwargs, "block.maximum");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TMAX"));
 
 REGISTER_OP("block.muls")
     .set_op_category("BlockOp")
@@ -155,7 +176,8 @@ REGISTER_OP("block.muls")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpScalarBinaryType(args, kwargs, "block.muls");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TMULS"));
 
 REGISTER_OP("block.adds")
     .set_op_category("BlockOp")
@@ -166,7 +188,8 @@ REGISTER_OP("block.adds")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpScalarBinaryType(args, kwargs, "block.adds");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TADDS"));
 
 REGISTER_OP("block.divs")
     .set_op_category("BlockOp")
@@ -177,7 +200,8 @@ REGISTER_OP("block.divs")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpScalarBinaryType(args, kwargs, "block.divs");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TDIVS"));
 
 REGISTER_OP("block.subs")
     .set_op_category("BlockOp")
@@ -188,7 +212,8 @@ REGISTER_OP("block.subs")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockOpScalarBinaryType(args, kwargs, "block.subs");
-    });
+    })
+    .f_codegen_cce(MakeBinaryElementwiseCodegenCCE("TSUBS"));
 
 }  // namespace ir
 }  // namespace pypto

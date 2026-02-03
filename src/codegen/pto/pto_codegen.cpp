@@ -148,6 +148,9 @@ class PTOMLIRCodegen : public IRVisitor {
  public:
   PTOMLIRCodegen() = default;
 
+  // Allow PTOCodegen to access private members for helper methods
+  friend class PTOCodegen;
+
   std::string Generate(const ProgramPtr& program) {
     stream_.str("");
     stream_.clear();
@@ -720,7 +723,84 @@ class PTOMLIRCodegen : public IRVisitor {
 // Public API implementation
 std::string PTOCodegen::Generate(const ir::ProgramPtr& program) {
   PTOMLIRCodegen codegen;
-  return codegen.Generate(program);
+  // Set current implementation pointer so helper methods can forward
+  current_impl_ = static_cast<void*>(&codegen);
+  std::string result = codegen.Generate(program);
+  current_impl_ = nullptr;
+  return result;
+}
+
+// ========================================================================
+// Public Helper Methods for Operator Codegen Functions
+// ========================================================================
+
+std::string PTOCodegen::NewTemp() {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: NewTemp called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  return impl->NewTemp();
+}
+
+std::string PTOCodegen::GetCurrentResultBuf() const {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: GetCurrentResultBuf called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  return impl->current_result_buf_;
+}
+
+std::string PTOCodegen::GetMLIRVar(const ir::ExprPtr& expr) {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: GetMLIRVar called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  // Visit the expression and get its MLIR representation
+  // For variables, return their MLIR name
+  if (auto var = As<ir::Var>(expr)) {
+    auto it = impl->var_to_mlir_.find(var->name_);
+    if (it != impl->var_to_mlir_.end()) {
+      return it->second;
+    }
+    // If not found, might be a tile variable - check memref mapping
+    auto memref_it = impl->var_to_memref_.find(var->name_);
+    if (memref_it != impl->var_to_memref_.end()) {
+      // Get the MLIR name for this MemRef pointer
+      auto mlir_it = impl->memref_to_mlir_.find(memref_it->second);
+      if (mlir_it != impl->memref_to_mlir_.end()) {
+        return mlir_it->second;
+      }
+    }
+    LOG_ERROR << "Variable " << var->name_ << " not found in MLIR mapping";
+    return "";
+  }
+  // For other expressions, visit them
+  // This is simplified - in practice may need more sophisticated handling
+  LOG_ERROR << "GetMLIRVar for non-Var expressions not yet fully implemented";
+  return "";
+}
+
+int64_t PTOCodegen::GetConstIntValue(const ir::ExprPtr& expr) {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: GetConstIntValue called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  return impl->GetConstIntValue(expr);
+}
+
+std::string PTOCodegen::GetOrCreateTensorView(const ir::VarPtr& tensor) {
+  INTERNAL_CHECK(current_impl_ != nullptr)
+      << "Internal error: GetOrCreateTensorView called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  return impl->GetOrCreateTensorView(tensor);
+}
+
+std::string PTOCodegen::DataTypeToMLIR(const DataType& dtype) {
+  return ::pypto::codegen::DataTypeToMLIR(dtype);
+}
+
+std::string PTOCodegen::GetIndexConstant(int64_t val) {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: GetIndexConstant called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  return impl->GetOrEmitIndexConstant(val);
+}
+
+void PTOCodegen::EmitMLIR(const std::string& mlir_code) {
+  INTERNAL_CHECK(current_impl_ != nullptr) << "Internal error: EmitMLIR called outside Generate()";
+  auto* impl = static_cast<PTOMLIRCodegen*>(current_impl_);
+  impl->body_section_ << impl->GetIndent() << mlir_code << "\n";
 }
 
 }  // namespace codegen
