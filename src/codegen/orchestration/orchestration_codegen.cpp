@@ -62,7 +62,7 @@ std::string GenerateArgumentValidationCode(const FunctionPtr& func) {
 
   bool has_tensor_return = FunctionReturnsTensor(func);
   int return_tensor_count = has_tensor_return ? 1 : 0;
-  int expected_arg_count = (tensor_param_count + return_tensor_count) * 2;
+  int expected_arg_count = (tensor_param_count + return_tensor_count) * 2 + 1;
 
   std::ostringstream oss;
   oss << "    // Validate argument count\n";
@@ -75,10 +75,13 @@ std::string GenerateArgumentValidationCode(const FunctionPtr& func) {
   return oss.str();
 }
 
-std::pair<std::string, std::string> GenerateArgumentExtractionCode(const FunctionPtr& func,
-                                                                   bool has_tensor_return) {
+std::pair<std::string, std::string> GenerateArgumentExtractionCode(
+    const FunctionPtr& func, bool has_tensor_return,
+    const std::string& return_var_name = "") {
   std::ostringstream oss;
-  std::string output_tensor_name;
+  // Use actual return variable name from IR when available (like params); fallback to "output"
+  std::string output_tensor_name =
+      has_tensor_return && !return_var_name.empty() ? return_var_name : "output";
 
   oss << "    // Extract arguments\n";
   int arg_idx = 0;
@@ -86,18 +89,27 @@ std::pair<std::string, std::string> GenerateArgumentExtractionCode(const Functio
   for (const auto& param : func->params_) {
     if (As<TensorType>(param->GetType())) {
       oss << "    void* host_" << param->name_ << " = reinterpret_cast<void*>(args[" << arg_idx << "]);\n";
-      oss << "    size_t size_" << param->name_ << " = static_cast<size_t>(args[" << arg_idx + 1 << "]);\n";
-      arg_idx += 2;
+      arg_idx += 1;
     }
   }
 
   if (has_tensor_return) {
-    output_tensor_name = "output";
     oss << "    void* host_" << output_tensor_name << " = reinterpret_cast<void*>(args[" << arg_idx
         << "]);\n";
-    oss << "    size_t size_" << output_tensor_name << " = static_cast<size_t>(args[" << arg_idx + 1
-        << "]);\n";
-    arg_idx += 2;
+    arg_idx += 1;
+  }
+  
+  for (const auto& param : func->params_) {
+    if (As<TensorType>(param->GetType())) {
+      oss << "    size_t size_" << param->name_ << " = static_cast<size_t>(args[" << arg_idx << "]);\n";
+      arg_idx += 1;
+    }
+  }
+  
+  if (has_tensor_return) {
+    oss << "    size_t size_" << output_tensor_name << " = static_cast<size_t>(args[" << arg_idx
+    << "]);\n";
+    arg_idx += 1;
   }
 
   oss << "\n";
@@ -139,7 +151,7 @@ std::string GenerateDeviceMemoryAllocationCode(const FunctionPtr& func,
   if (!intermediate_tensors.empty()) {
     oss << "    // Allocate device memory for intermediate tensors\n";
     for (const auto& tensor_name : intermediate_tensors) {
-      std::string size_var = "size_" + func->params_[0]->name_;
+      std::string size_var = "size_" + tensor_name;
       oss << "    void* dev_" << tensor_name << " = runtime->host_api.device_malloc(" << size_var << ");\n";
     }
     oss << "\n";
@@ -314,13 +326,7 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
 
   bool has_tensor_return = FunctionReturnsTensor(func);
 
-  oss << "extern \"C\" {\n\n";
-  oss << GenerateOrchestrationSignature(func) << " {\n";
-  oss << GenerateArgumentValidationCode(func);
-
-  auto [arg_extraction_code, output_tensor_name] = GenerateArgumentExtractionCode(func, has_tensor_return);
-  oss << arg_extraction_code;
-
+  // Collect info from IR first (return_var, output_tensors, etc.) so we can use actual names
   class OrchestrationInfoCollector : public IRVisitor {
    public:
     std::string return_var;
@@ -354,6 +360,14 @@ std::string GenerateOrchestration(const ir::ProgramPtr& program, const ir::Funct
   info_collector.VisitStmt(func->body_);
 
   std::string return_var_name = info_collector.return_var;
+
+  oss << "extern \"C\" {\n\n";
+  oss << GenerateOrchestrationSignature(func) << " {\n";
+  oss << GenerateArgumentValidationCode(func);
+
+  auto [arg_extraction_code, output_tensor_name] =
+      GenerateArgumentExtractionCode(func, has_tensor_return, return_var_name);
+  oss << arg_extraction_code;
   const std::set<std::string>& output_tensors = info_collector.output_tensors;
 
   std::set<std::string> param_names;

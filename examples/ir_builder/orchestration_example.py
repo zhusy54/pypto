@@ -114,7 +114,6 @@ class ExampleOrchProgram:
 
         # Task 3: f = d * e (call kernel_mul with output buffer)
         f_result: pl.Tensor[[16, 16], pl.FP32] = self.kernel_mul(d_updated, e_updated, output)
-
         return f_result
 
 
