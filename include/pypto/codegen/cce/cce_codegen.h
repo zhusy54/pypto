@@ -21,9 +21,9 @@
 #include "pypto/codegen/cce/code_emitter.h"
 #include "pypto/codegen/cce/isa_mapper.h"
 #include "pypto/codegen/cce/type_converter.h"
+#include "pypto/codegen/codegen_base.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/program.h"
-#include "pypto/ir/transforms/base/visitor.h"
 #include "pypto/ir/type.h"
 
 namespace pypto {
@@ -38,7 +38,7 @@ namespace codegen {
  * - Function body (block operations, sync operations, control flow)
  * - Type conversions and memory management
  */
-class CCECodegen : public ir::IRVisitor {
+class CCECodegen : public CodegenBase {
  public:
   CCECodegen();
 
@@ -54,51 +54,18 @@ class CCECodegen : public ir::IRVisitor {
    */
   [[nodiscard]] std::map<std::string, std::string> Generate(const ir::ProgramPtr& program);
 
-  // Public helper methods for operator codegen functions
+  // CodegenBase interface (unified API for operator codegen callbacks)
+  [[nodiscard]] std::string GetCurrentResultTarget() const override { return current_target_var_; }
+  void Emit(const std::string& line) override;
+  std::string GetExprAsCode(const ir::ExprPtr& expr) override;
+  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  int64_t GetConstIntValue(const ir::ExprPtr& expr) override;
+  std::string GetVarName(const ir::VarPtr& var) override;
 
   /**
-   * @brief Get the current target variable name for assignment
-   *
-   * Used by codegen functions to know where to store their result.
-   *
-   * @return Current target variable name
-   */
-  std::string GetCurrentTargetVar() const { return current_target_var_; }
-
-  /**
-   * @brief Visit an expression and get its inline value
-   *
-   * Visits the expression and returns the resulting inline C++ code.
-   * For scalar expressions, returns inline value; for operations,
-   * returns variable name.
-   *
-   * @param expr Expression to visit
-   * @return Inline C++ code for the expression
-   */
-  std::string VisitAndGetValue(const ir::ExprPtr& expr);
-
-  /**
-   * @brief Get variable name for a Var
-   *
-   * @param var The IR Var
-   * @return C++ variable name
-   */
-  std::string GetVarName(const ir::VarPtr& var);
-
-  /**
-   * @brief Get pointer name for a variable
-   *
-   * @param var_name Variable name
-   * @return Pointer name
+   * @brief Get pointer name for a variable (CCE-specific)
    */
   std::string GetPointer(const std::string& var_name);
-
-  /**
-   * @brief Emit a line of C++ code
-   *
-   * @param line Line of code to emit
-   */
-  void EmitLine(const std::string& line);
 
  protected:
   // Override visitor methods for code generation - Statements

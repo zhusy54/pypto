@@ -561,19 +561,25 @@ void CCECodegen::VisitExpr_(const ir::TupleGetItemExprPtr& op) {
 }
 
 // ========================================================================
-// Public Helper Methods for Operator Codegen Functions
+// CodegenBase interface and CCE-specific helper methods
 // ========================================================================
 
-std::string CCECodegen::VisitAndGetValue(const ir::ExprPtr& expr) {
+std::string CCECodegen::GetExprAsCode(const ir::ExprPtr& expr) {
   VisitExpr(expr);
   return current_expr_value_;
 }
 
+void CCECodegen::Emit(const std::string& line) { emitter_.EmitLine(line); }
+
+std::string CCECodegen::GetTypeString(const DataType& dtype) const {
+  return type_converter_.ConvertDataType(dtype);
+}
+
+int64_t CCECodegen::GetConstIntValue(const ir::ExprPtr& expr) { return ExtractConstInt(expr); }
+
 std::string CCECodegen::GetVarName(const ir::VarPtr& var) { return context_.GetVarName(var); }
 
 std::string CCECodegen::GetPointer(const std::string& var_name) { return context_.GetPointer(var_name); }
-
-void CCECodegen::EmitLine(const std::string& line) { emitter_.EmitLine(line); }
 
 // ========================================================================
 // Call Expression Visitor (uses operator registry codegen functions)

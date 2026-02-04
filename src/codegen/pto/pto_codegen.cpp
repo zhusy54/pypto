@@ -194,9 +194,9 @@ void PTOCodegen::GenerateFunction(const FunctionPtr& func) {
     param_names.insert(param->name_);
 
     if (auto tensor_type = As<TensorType>(param->GetType())) {
-      stream_ << "!pto.ptr<" << DataTypeToMLIR(tensor_type->dtype_) << ">";
+      stream_ << "!pto.ptr<" << GetTypeString(tensor_type->dtype_) << ">";
     } else if (auto scalar_type = As<ScalarType>(param->GetType())) {
-      stream_ << DataTypeToMLIR(scalar_type->dtype_);
+      stream_ << GetTypeString(scalar_type->dtype_);
     } else {
       stream_ << "!pto.ptr<f32>";
     }
@@ -301,7 +301,7 @@ void PTOCodegen::EmitMakeTensorViews(const FunctionPtr& func) {
       stream_ << "]";
 
       stream_ << " : !pto.tensor_view<" << tensor_type->shape_.size() << "x";
-      stream_ << DataTypeToMLIR(tensor_type->dtype_) << ">\n";
+      stream_ << GetTypeString(tensor_type->dtype_) << ">\n";
     }
   }
 }
@@ -360,7 +360,7 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
         auto tensor_type = As<TensorType>(tensor->GetType());
         int64_t height = GetConstIntValue(call->args_[3]);
         int64_t width = GetConstIntValue(call->args_[4]);
-        std::string dtype_str = DataTypeToMLIR(tensor_type->dtype_);
+        std::string dtype_str = GetTypeString(tensor_type->dtype_);
 
         stream_ << GetIndent() << "pto.tload ins(" << current_tile_view_;
         stream_ << " : !pto.tile_view<" << height << "x" << width << "x" << dtype_str << ">) outs(";
@@ -421,7 +421,7 @@ void PTOCodegen::VisitExpr_(const CallPtr& op) {
     const auto& entry = op_registry.GetEntry(op_name);
     if (entry.HasPTOCodegen()) {
       std::string mlir_line = entry.GetCodegenPTO()(op, *this);
-      EmitMLIR(mlir_line);
+      Emit(mlir_line);
       return;
     }
   }
@@ -444,7 +444,7 @@ void PTOCodegen::EmitBlockLoadSubview(const CallPtr& op) {
   INTERNAL_CHECK(tensor_type) << "block.load tensor argument must have TensorType";
 
   std::string tensor_view = GetOrCreateTensorView(tensor);
-  std::string dtype_str = DataTypeToMLIR(tensor_type->dtype_);
+  std::string dtype_str = GetTypeString(tensor_type->dtype_);
 
   std::string tile_view = NewTemp();
   stream_ << GetIndent() << tile_view << " = pto.subview " << tensor_view;
@@ -467,7 +467,7 @@ void PTOCodegen::EmitBlockStore(const CallPtr& op) {
   auto output_tensor = As<ir::Var>(op->args_[5]);
 
   auto tensor_type = As<TensorType>(output_tensor->GetType());
-  std::string dtype_str = DataTypeToMLIR(tensor_type->dtype_);
+  std::string dtype_str = GetTypeString(tensor_type->dtype_);
 
   std::string tensor_view = GetOrCreateTensorView(output_tensor);
 
@@ -490,32 +490,48 @@ void PTOCodegen::EmitBlockStore(const CallPtr& op) {
 }
 
 // ========================================================================
-// Public helper methods
+// CodegenBase interface and PTO-specific helper methods
 // ========================================================================
 
-std::string PTOCodegen::NewTemp() { return "%" + std::to_string(temp_counter_++); }
+std::string PTOCodegen::GetCurrentResultTarget() const { return current_result_buf_; }
 
-std::string PTOCodegen::GetCurrentResultBuf() const { return current_result_buf_; }
+void PTOCodegen::Emit(const std::string& line) { stream_ << GetIndent() << line << "\n"; }
 
-std::string PTOCodegen::GetMLIRVar(const ExprPtr& expr) {
+std::string PTOCodegen::GetExprAsCode(const ExprPtr& expr) {
   if (auto var = As<ir::Var>(expr)) {
-    auto it = var_to_mlir_.find(var->name_);
-    if (it != var_to_mlir_.end()) {
-      return it->second;
-    }
-    auto memref_it = var_to_memref_.find(var->name_);
-    if (memref_it != var_to_memref_.end()) {
-      auto mlir_it = memref_to_mlir_.find(memref_it->second);
-      if (mlir_it != memref_to_mlir_.end()) {
-        return mlir_it->second;
-      }
-    }
-    LOG_ERROR << "Variable " << var->name_ << " not found in MLIR mapping";
-    return "";
+    return GetVarName(var);
   }
-  LOG_ERROR << "GetMLIRVar for non-Var expressions not yet fully implemented";
+  if (auto const_int = As<ir::ConstInt>(expr)) {
+    return GetIndexConstant(const_int->value_);
+  }
+  if (auto const_float = As<ir::ConstFloat>(expr)) {
+    return GetOrEmitFloatConstant(const_float->value_, "f32");
+  }
+  LOG_ERROR << "GetExprAsCode for unsupported expression type";
   return "";
 }
+
+std::string PTOCodegen::GetTypeString(const DataType& dtype) const {
+  return DataTypeToMLIRImpl(dtype);
+}
+
+std::string PTOCodegen::GetVarName(const VarPtr& var) {
+  auto it = var_to_mlir_.find(var->name_);
+  if (it != var_to_mlir_.end()) {
+    return it->second;
+  }
+  auto memref_it = var_to_memref_.find(var->name_);
+  if (memref_it != var_to_memref_.end()) {
+    auto mlir_it = memref_to_mlir_.find(memref_it->second);
+    if (mlir_it != memref_to_mlir_.end()) {
+      return mlir_it->second;
+    }
+  }
+  LOG_ERROR << "Variable " << var->name_ << " not found in MLIR mapping";
+  return "";
+}
+
+std::string PTOCodegen::NewTemp() { return "%" + std::to_string(temp_counter_++); }
 
 int64_t PTOCodegen::GetConstIntValue(const ExprPtr& expr) {
   if (auto const_int = As<ir::ConstInt>(expr)) {
@@ -531,8 +547,6 @@ std::string PTOCodegen::GetOrCreateTensorView(const VarPtr& tensor_param) {
       << "Tensor view not found for parameter: " << tensor_param->name_;
   return it->second;
 }
-
-std::string PTOCodegen::DataTypeToMLIR(const DataType& dtype) { return DataTypeToMLIRImpl(dtype); }
 
 std::string PTOCodegen::GetIndexConstant(int64_t val) { return GetOrEmitIndexConstant(val); }
 
@@ -553,10 +567,6 @@ std::string PTOCodegen::GetOrEmitFloatConstant(double value, const std::string& 
     return name;
   }
   return float_const_names_[value];
-}
-
-void PTOCodegen::EmitMLIR(const std::string& mlir_code) {
-  stream_ << GetIndent() << mlir_code << "\n";
 }
 
 }  // namespace codegen

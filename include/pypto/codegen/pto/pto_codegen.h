@@ -18,12 +18,12 @@
 #include <string>
 #include <vector>
 
+#include "pypto/codegen/codegen_base.h"
 #include "pypto/core/dtype.h"
 #include "pypto/ir/expr.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/program.h"
-#include "pypto/ir/transforms/base/visitor.h"
 #include "pypto/ir/type.h"
 
 namespace pypto {
@@ -36,7 +36,7 @@ namespace codegen {
  * Traverses the IR using the visitor pattern (aligned with CCECodegen).
  * Automatically generates make_tensor_view, subview, and alloc_tile instructions.
  */
-class PTOCodegen : public ir::IRVisitor {
+class PTOCodegen : public CodegenBase {
  public:
   PTOCodegen() = default;
   ~PTOCodegen() override = default;
@@ -49,7 +49,15 @@ class PTOCodegen : public ir::IRVisitor {
    */
   std::string Generate(const ir::ProgramPtr& program);
 
-  // Public helper methods for operator codegen functions
+  // CodegenBase interface (unified API for operator codegen callbacks)
+  [[nodiscard]] std::string GetCurrentResultTarget() const override;
+  void Emit(const std::string& line) override;
+  std::string GetExprAsCode(const ir::ExprPtr& expr) override;
+  [[nodiscard]] std::string GetTypeString(const DataType& dtype) const override;
+  int64_t GetConstIntValue(const ir::ExprPtr& expr) override;
+  std::string GetVarName(const ir::VarPtr& var) override;
+
+  // PTO-specific helper methods for operator codegen functions
 
   /**
    * @brief Create a new temporary SSA variable
@@ -59,43 +67,12 @@ class PTOCodegen : public ir::IRVisitor {
   std::string NewTemp();
 
   /**
-   * @brief Get the current result buffer for tile operations
-   *
-   * @return Current result buffer name
-   */
-  [[nodiscard]] std::string GetCurrentResultBuf() const;
-
-  /**
-   * @brief Get MLIR SSA variable for an expression
-   *
-   * @param expr Expression to get SSA var for
-   * @return MLIR SSA variable name
-   */
-  std::string GetMLIRVar(const ir::ExprPtr& expr);
-
-  /**
-   * @brief Extract constant integer value from expression
-   *
-   * @param expr Expression (must be ConstInt)
-   * @return Integer value
-   */
-  int64_t GetConstIntValue(const ir::ExprPtr& expr);
-
-  /**
    * @brief Get or create tensor view for a variable
    *
    * @param tensor Tensor variable
    * @return Tensor view name
    */
   std::string GetOrCreateTensorView(const ir::VarPtr& tensor);
-
-  /**
-   * @brief Convert DataType to MLIR type string
-   *
-   * @param dtype Data type
-   * @return MLIR type string (e.g., "f32", "i32")
-   */
-  std::string DataTypeToMLIR(const DataType& dtype);
 
   /**
    * @brief Get or emit index constant
@@ -113,13 +90,6 @@ class PTOCodegen : public ir::IRVisitor {
    * @return SSA variable name for the constant
    */
   std::string GetOrEmitFloatConstant(double value, const std::string& mlir_type = "f32");
-
-  /**
-   * @brief Emit a line of MLIR code
-   *
-   * @param mlir_code MLIR code line to emit
-   */
-  void EmitMLIR(const std::string& mlir_code);
 
  protected:
   // Override visitor methods for code generation - Statements

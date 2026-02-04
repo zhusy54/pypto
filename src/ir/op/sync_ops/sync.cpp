@@ -72,7 +72,7 @@ CCECodegenFunc MakeSyncCodegenCCE(const std::string& isa_name) {
     std::string wait_pipe_str = PipeTypeToString(wait_pipe);
     std::string event_id_str = "EVENT_ID" + std::to_string(event_id);
 
-    codegen.EmitLine(isa_name + "(" + set_pipe_str + ", " + wait_pipe_str + ", " + event_id_str + ");");
+    codegen.Emit(isa_name + "(" + set_pipe_str + ", " + wait_pipe_str + ", " + event_id_str + ");");
     return "";  // No return value
   };
 }
@@ -80,7 +80,7 @@ CCECodegenFunc MakeSyncCodegenCCE(const std::string& isa_name) {
 // Helper for pipe_barrier codegen (bar_v, bar_m, bar_all)
 CCECodegenFunc MakeBarrierCodegenCCE(const std::string& pipe_str) {
   return [pipe_str](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    codegen.EmitLine("pipe_barrier(" + pipe_str + ");");
+    codegen.Emit("pipe_barrier(" + pipe_str + ");");
     return "";  // No return value
   };
 }

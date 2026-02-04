@@ -55,9 +55,9 @@ TypePtr DeduceBlockUnaryType(const std::vector<ExprPtr>& args,
 // Helper lambda factory for unary operations
 auto MakeUnaryCodegenCCE(const std::string& isa_name) {
   return [isa_name](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    std::string target_var = codegen.GetCurrentTargetVar();
-    std::string input = codegen.VisitAndGetValue(op->args_[0]);
-    codegen.EmitLine(isa_name + "(" + target_var + ", " + input + ");");
+    std::string target_var = codegen.GetCurrentResultTarget();
+    std::string input = codegen.GetExprAsCode(op->args_[0]);
+    codegen.Emit(isa_name + "(" + target_var + ", " + input + ");");
     return target_var;
   };
 }

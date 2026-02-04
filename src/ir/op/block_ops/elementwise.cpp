@@ -91,19 +91,19 @@ TypePtr DeduceBlockOpScalarBinaryType(const std::vector<ExprPtr>& args,
 }
 
 // ============================================================================
-// PTO Codegen Helpers (return MLIR string; caller does EmitMLIR)
+// PTO Codegen Helpers (return MLIR string; caller does Emit)
 // ============================================================================
 
-// Binary tile-tile: build MLIR line using PTOCodegen API, return string (no EmitMLIR)
+// Binary tile-tile: build MLIR line using PTOCodegen API, return string (caller Emits)
 auto MakeBinaryTileTileCodegenPTO(const std::string& pto_op) {
   return [pto_op](const CallPtr& op, codegen::PTOCodegen& codegen) -> std::string {
     auto lhs = As<ir::Var>(op->args_[0]);
     auto rhs = As<ir::Var>(op->args_[1]);
     INTERNAL_CHECK(lhs && rhs) << "Both arguments must be Var";
 
-    std::string lhs_buf = codegen.GetMLIRVar(lhs);
-    std::string rhs_buf = codegen.GetMLIRVar(rhs);
-    std::string result_buf = codegen.GetCurrentResultBuf();
+    std::string lhs_buf = codegen.GetVarName(lhs);
+    std::string rhs_buf = codegen.GetVarName(rhs);
+    std::string result_buf = codegen.GetCurrentResultTarget();
     if (result_buf.empty()) {
       result_buf = "RESULT_BUF";
     }
@@ -127,8 +127,8 @@ auto MakeBinaryTileScalarCodegenPTO(const std::string& pto_op) {
     auto tile = As<ir::Var>(op->args_[0]);
     INTERNAL_CHECK(tile) << "First argument must be Var";
 
-    std::string tile_buf = codegen.GetMLIRVar(tile);
-    std::string result_buf = codegen.GetCurrentResultBuf();
+    std::string tile_buf = codegen.GetVarName(tile);
+    std::string result_buf = codegen.GetCurrentResultTarget();
     if (result_buf.empty()) {
       result_buf = "RESULT_BUF";
     }
@@ -142,7 +142,7 @@ auto MakeBinaryTileScalarCodegenPTO(const std::string& pto_op) {
       scalar_val = static_cast<double>(const_int->value_);
       scalar_type = "i32";
     } else if (auto scalar_t = As<ScalarType>(op->args_[1]->GetType())) {
-      scalar_type = codegen.DataTypeToMLIR(scalar_t->dtype_);
+      scalar_type = codegen.GetTypeString(scalar_t->dtype_);
     }
 
     std::string scalar_const = codegen.GetOrEmitFloatConstant(scalar_val, scalar_type);
@@ -165,13 +165,13 @@ auto MakeBinaryTileScalarCodegenPTO(const std::string& pto_op) {
 // Helper lambda factory for binary elementwise operations
 auto MakeBinaryElementwiseCodegenCCE(const std::string& isa_name) {
   return [isa_name](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    std::string target_var = codegen.GetCurrentTargetVar();
+    std::string target_var = codegen.GetCurrentResultTarget();
     std::ostringstream args_str;
     args_str << target_var;
     for (const auto& arg : op->args_) {
-      args_str << ", " << codegen.VisitAndGetValue(arg);
+      args_str << ", " << codegen.GetExprAsCode(arg);
     }
-    codegen.EmitLine(isa_name + "(" + args_str.str() + ");");
+    codegen.Emit(isa_name + "(" + args_str.str() + ");");
     return target_var;
   };
 }
