@@ -15,6 +15,7 @@
 #include <string>
 
 #include "pypto/core/dtype.h"
+#include "pypto/core/error.h"
 #include "pypto/ir/expr.h"
 #include "pypto/ir/transforms/base/visitor.h"
 #include "pypto/ir/type.h"
@@ -87,6 +88,26 @@ class CodegenBase : public ir::IRVisitor {
    * @return Platform variable name (C++ name or MLIR SSA name)
    */
   virtual std::string GetVarName(const ir::VarPtr& var) = 0;
+
+ protected:
+  /**
+   * @brief Throw when no codegen is registered for a Call
+   *
+   * Subclasses call this from VisitExpr_(Call) when the op has no platform codegen.
+   *
+   * @param op_name IR operation name (e.g., "block.load")
+   */
+  [[noreturn]] void ThrowNoCodegenForCall(const std::string& op_name) const {
+    throw ValueError("No codegen registered for operation: " + op_name);
+  }
+
+  /**
+   * @brief Default VisitExpr_(Call): throws (subclasses must override)
+   *
+   * All actual codegen paths go through subclass overrides. This default ensures
+   * any Call that reaches the base implementation results in a compile-time error.
+   */
+  void VisitExpr_(const ir::CallPtr& op) override { ThrowNoCodegenForCall(op->op_->name_); }
 };
 
 }  // namespace codegen

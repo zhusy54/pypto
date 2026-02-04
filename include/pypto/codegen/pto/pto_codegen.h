@@ -94,9 +94,6 @@ class PTOCodegen : public CodegenBase {
  protected:
   // Override visitor methods for code generation - Statements
   void VisitStmt_(const ir::AssignStmtPtr& op) override;
-  void VisitStmt_(const ir::SeqStmtsPtr& op) override;
-  void VisitStmt_(const ir::OpStmtsPtr& op) override;
-  void VisitStmt_(const ir::EvalStmtPtr& op) override;
 
   // Override visitor methods for code generation - Expressions
   void VisitExpr_(const ir::CallPtr& op) override;
@@ -121,16 +118,6 @@ class PTOCodegen : public CodegenBase {
    * @brief Emit alloc_tile for all MemRefs
    */
   void EmitAllocTiles(const ir::FunctionPtr& func, const std::vector<ir::MemRefPtr>& memrefs);
-
-  /**
-   * @brief Emit subview part of block.load (tload is emitted in AssignStmt visitor)
-   */
-  void EmitBlockLoadSubview(const ir::CallPtr& op);
-
-  /**
-   * @brief Emit block.store -> subview + tstore
-   */
-  void EmitBlockStore(const ir::CallPtr& op);
 
   /**
    * @brief Get indent string for current level
@@ -166,7 +153,6 @@ class PTOCodegen : public CodegenBase {
 
   // Current function context
   ir::FunctionPtr current_function_;
-  std::string current_tile_view_;
   std::string current_result_buf_;
 };
 

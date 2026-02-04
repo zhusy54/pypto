@@ -19,7 +19,6 @@
 
 #include "pypto/codegen/cce/code_context.h"
 #include "pypto/codegen/cce/code_emitter.h"
-#include "pypto/codegen/cce/isa_mapper.h"
 #include "pypto/codegen/cce/type_converter.h"
 #include "pypto/codegen/codegen_base.h"
 #include "pypto/ir/function.h"
@@ -66,6 +65,17 @@ class CCECodegen : public CodegenBase {
    * @brief Get pointer name for a variable (CCE-specific)
    */
   std::string GetPointer(const std::string& var_name);
+
+  /**
+   * @brief Register pointer mapping for block.store result (CCE-specific)
+   *
+   * Associates the assignment target variable with the output tensor variable
+   * for pointer lookup. Used when block.store returns a tensor reference.
+   *
+   * @param output_var_name Assignment target variable name
+   * @param tensor_var_name Output tensor variable name (e.g., from GlobalTensor)
+   */
+  void RegisterOutputPointer(const std::string& output_var_name, const std::string& tensor_var_name);
 
  protected:
   // Override visitor methods for code generation - Statements
@@ -233,7 +243,6 @@ class CCECodegen : public CodegenBase {
   CodeEmitter emitter_;           ///< Code emitter for structured output
   CodeContext context_;           ///< Context for variable tracking
   TypeConverter type_converter_;  ///< Type converter
-  ISAMapper isa_mapper_;          ///< Operation → ISA mapping
 };
 
 }  // namespace codegen

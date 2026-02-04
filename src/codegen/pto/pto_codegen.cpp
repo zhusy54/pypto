@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "pypto/core/dtype.h"
+#include "pypto/core/error.h"
 #include "pypto/core/logging.h"
 #include "pypto/ir/expr.h"
 #include "pypto/ir/function.h"
@@ -37,14 +38,11 @@ namespace codegen {
 using ir::As;
 using ir::AssignStmtPtr;
 using ir::CallPtr;
-using ir::EvalStmtPtr;
 using ir::ExprPtr;
 using ir::FunctionPtr;
 using ir::MemRefPtr;
-using ir::OpStmtsPtr;
 using ir::ProgramPtr;
 using ir::ScalarType;
-using ir::SeqStmtsPtr;
 using ir::StmtPtr;
 using ir::TensorType;
 using ir::TileType;
@@ -345,35 +343,6 @@ std::string PTOCodegen::GetTileBufForMemRef(const MemRefPtr& memref) {
 
 void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
   if (auto call = As<ir::Call>(op->value_)) {
-    if (call->op_->name_ == "block.load") {
-      std::string tile_buf;
-      if (auto tile_type = As<TileType>(op->var_->GetType())) {
-        if (tile_type->memref_.has_value()) {
-          tile_buf = GetTileBufForMemRef(tile_type->memref_.value());
-        }
-      }
-
-      EmitBlockLoadSubview(call);
-
-      if (!tile_buf.empty() && !current_tile_view_.empty()) {
-        auto tensor = As<ir::Var>(call->args_[0]);
-        auto tensor_type = As<TensorType>(tensor->GetType());
-        int64_t height = GetConstIntValue(call->args_[3]);
-        int64_t width = GetConstIntValue(call->args_[4]);
-        std::string dtype_str = GetTypeString(tensor_type->dtype_);
-
-        stream_ << GetIndent() << "pto.tload ins(" << current_tile_view_;
-        stream_ << " : !pto.tile_view<" << height << "x" << width << "x" << dtype_str << ">) outs(";
-        stream_ << tile_buf << " : !pto.tile_buf<loc=ub, dtype=" << dtype_str;
-        stream_ << ", rows=" << height << ", cols=" << width;
-        stream_ << ", v_row=" << height << ", v_col=" << width;
-        stream_ << ", blayout=row_major, slayout=none_box, fractal=512, pad=0>)\n";
-
-        current_tile_view_.clear();
-      }
-      return;
-    }
-    // Any Call with registered PTO codegen (block.mul, block.add, block.div, etc.)
     auto& op_registry = ir::OpRegistry::GetInstance();
     if (op_registry.IsRegistered(call->op_->name_)) {
       const auto& entry = op_registry.GetEntry(call->op_->name_);
@@ -395,20 +364,6 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
   VisitExpr(op->value_);
 }
 
-void PTOCodegen::VisitStmt_(const SeqStmtsPtr& op) {
-  for (const auto& stmt : op->stmts_) {
-    VisitStmt(stmt);
-  }
-}
-
-void PTOCodegen::VisitStmt_(const OpStmtsPtr& op) {
-  for (const auto& stmt : op->stmts_) {
-    VisitStmt(stmt);
-  }
-}
-
-void PTOCodegen::VisitStmt_(const EvalStmtPtr& op) { VisitExpr(op->expr_); }
-
 // ========================================================================
 // Expression visitors
 // ========================================================================
@@ -421,72 +376,14 @@ void PTOCodegen::VisitExpr_(const CallPtr& op) {
     const auto& entry = op_registry.GetEntry(op_name);
     if (entry.HasPTOCodegen()) {
       std::string mlir_line = entry.GetCodegenPTO()(op, *this);
-      Emit(mlir_line);
+      if (!mlir_line.empty()) {
+        Emit(mlir_line);
+      }
       return;
     }
   }
 
-  if (op_name == "block.store") {
-    EmitBlockStore(op);
-  }
-}
-
-void PTOCodegen::EmitBlockLoadSubview(const CallPtr& op) {
-  auto tensor = As<ir::Var>(op->args_[0]);
-  INTERNAL_CHECK(tensor) << "block.load first argument must be a Var";
-
-  int64_t row_off = GetConstIntValue(op->args_[1]);
-  int64_t col_off = GetConstIntValue(op->args_[2]);
-  int64_t height = GetConstIntValue(op->args_[3]);
-  int64_t width = GetConstIntValue(op->args_[4]);
-
-  auto tensor_type = As<TensorType>(tensor->GetType());
-  INTERNAL_CHECK(tensor_type) << "block.load tensor argument must have TensorType";
-
-  std::string tensor_view = GetOrCreateTensorView(tensor);
-  std::string dtype_str = GetTypeString(tensor_type->dtype_);
-
-  std::string tile_view = NewTemp();
-  stream_ << GetIndent() << tile_view << " = pto.subview " << tensor_view;
-  stream_ << ", offsets = [" << GetOrEmitIndexConstant(row_off) << ", ";
-  stream_ << GetOrEmitIndexConstant(col_off) << "]";
-  stream_ << ", sizes = [" << GetOrEmitIndexConstant(height) << ", ";
-  stream_ << GetOrEmitIndexConstant(width) << "]";
-  stream_ << " : !pto.tensor_view<2x" << dtype_str << "> -> !pto.tile_view<";
-  stream_ << height << "x" << width << "x" << dtype_str << ">\n";
-
-  current_tile_view_ = tile_view;
-}
-
-void PTOCodegen::EmitBlockStore(const CallPtr& op) {
-  auto tile = As<ir::Var>(op->args_[0]);
-  int64_t row_off = GetConstIntValue(op->args_[1]);
-  int64_t col_off = GetConstIntValue(op->args_[2]);
-  int64_t height = GetConstIntValue(op->args_[3]);
-  int64_t width = GetConstIntValue(op->args_[4]);
-  auto output_tensor = As<ir::Var>(op->args_[5]);
-
-  auto tensor_type = As<TensorType>(output_tensor->GetType());
-  std::string dtype_str = GetTypeString(tensor_type->dtype_);
-
-  std::string tensor_view = GetOrCreateTensorView(output_tensor);
-
-  std::string tile_view = NewTemp();
-  stream_ << GetIndent() << tile_view << " = pto.subview " << tensor_view;
-  stream_ << ", offsets = [" << GetOrEmitIndexConstant(row_off) << ", ";
-  stream_ << GetOrEmitIndexConstant(col_off) << "]";
-  stream_ << ", sizes = [" << GetOrEmitIndexConstant(height) << ", ";
-  stream_ << GetOrEmitIndexConstant(width) << "]";
-  stream_ << " : !pto.tensor_view<2x" << dtype_str << "> -> !pto.tile_view<";
-  stream_ << height << "x" << width << "x" << dtype_str << ">\n";
-
-  std::string tile_buf = var_to_mlir_[tile->name_];
-
-  stream_ << GetIndent() << "pto.tstore ins(" << tile_buf;
-  stream_ << " : !pto.tile_buf<loc=ub, dtype=" << dtype_str << ", rows=" << height;
-  stream_ << ", cols=" << width << ", v_row=" << height << ", v_col=" << width;
-  stream_ << ", blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(";
-  stream_ << tile_view << " : !pto.tile_view<" << height << "x" << width << "x" << dtype_str << ">)\n";
+  ThrowNoCodegenForCall(op_name);
 }
 
 // ========================================================================
