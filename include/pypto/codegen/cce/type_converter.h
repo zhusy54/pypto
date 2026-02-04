@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-#include "pypto/core/dtype.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/pipe.h"
 #include "pypto/ir/type.h"
@@ -91,20 +90,6 @@ class TypeConverter {
    * @return C++ event ID string with "EVENT_ID" prefix
    */
   [[nodiscard]] std::string ConvertEventId(int event_id) const;
-
-  /**
-   * @brief Convert DataType to C++ type string
-   *
-   * Maps PyPTO DataType to C++ type strings:
-   * - FP32 → "float"
-   * - FP16 → "half"
-   * - INT32 → "int32_t"
-   * - etc.
-   *
-   * @param dtype The data type
-   * @return C++ type string
-   */
-  [[nodiscard]] std::string ConvertDataType(DataType dtype) const;
 
   /**
    * @brief Generate Shape type instantiation

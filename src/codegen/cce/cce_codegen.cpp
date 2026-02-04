@@ -543,7 +543,7 @@ std::string CCECodegen::GetExprAsCode(const ir::ExprPtr& expr) {
 void CCECodegen::Emit(const std::string& line) { emitter_.EmitLine(line); }
 
 std::string CCECodegen::GetTypeString(const DataType& dtype) const {
-  return type_converter_.ConvertDataType(dtype);
+  return dtype.ToCTypeString();
 }
 
 int64_t CCECodegen::GetConstIntValue(const ir::ExprPtr& expr) { return ExtractConstInt(expr); }
