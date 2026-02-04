@@ -91,6 +91,31 @@ std::string TypeConverter::ConvertEventId(int event_id) const {
   return "EVENT_ID" + std::to_string(event_id);
 }
 
+std::string TypeConverter::ConvertDataType(DataType dtype) const {
+  if (dtype == DataType::FP32) {
+    return "float";
+  } else if (dtype == DataType::FP16) {
+    return "half";
+  } else if (dtype == DataType::INT32) {
+    return "int32_t";
+  } else if (dtype == DataType::INT16) {
+    return "int16_t";
+  } else if (dtype == DataType::INT8) {
+    return "int8_t";
+  } else if (dtype == DataType::UINT32) {
+    return "uint32_t";
+  } else if (dtype == DataType::UINT16) {
+    return "uint16_t";
+  } else if (dtype == DataType::UINT8) {
+    return "uint8_t";
+  } else if (dtype == DataType::BF16) {
+    return "bfloat16";
+  } else {
+    LOG_ERROR << "Unsupported DataType: " << dtype.ToString();
+    return "float";
+  }
+}
+
 std::string TypeConverter::GenerateShapeType(const std::vector<int64_t>& dims) const {
   CHECK(!dims.empty()) << "Cannot generate Shape type for empty dimensions";
 

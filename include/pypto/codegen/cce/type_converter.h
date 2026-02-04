@@ -93,6 +93,20 @@ class TypeConverter {
   [[nodiscard]] std::string ConvertEventId(int event_id) const;
 
   /**
+   * @brief Convert DataType to C++ type string
+   *
+   * Maps PyPTO DataType to C++ type strings:
+   * - FP32 → "float"
+   * - FP16 → "half"
+   * - INT32 → "int32_t"
+   * - etc.
+   *
+   * @param dtype The data type
+   * @return C++ type string
+   */
+  [[nodiscard]] std::string ConvertDataType(DataType dtype) const;
+
+  /**
    * @brief Generate Shape type instantiation
    *
    * Converts a shape vector to pto-isa Shape template instantiation.

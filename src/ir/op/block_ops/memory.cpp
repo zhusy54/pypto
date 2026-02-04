@@ -210,6 +210,36 @@ PTOCodegenFunc MakeBlockStoreCodegenPTO() {
 }
 
 // ============================================================================
+// CCE Codegen for block.move
+// ============================================================================
+CCECodegenFunc MakeBlockMoveCodegenCCE() {
+  return [](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
+    CHECK(op->args_.size() == 1) << "block.move requires 1 argument: source tile";
+
+    std::string src_tile = codegen.GetExprAsCode(op->args_[0]);
+    std::string dst_tile = codegen.GetCurrentResultTarget();
+
+    // Get transpose attribute from kwargs
+    bool transpose = false;
+    for (const auto& [key, value] : op->kwargs_) {
+      if (key == "transpose") {
+        transpose = std::any_cast<bool>(value);
+        break;
+      }
+    }
+
+    // Emit TMOV instruction
+    if (transpose) {
+      codegen.Emit("TMOV(" + dst_tile + ", " + src_tile + ", true);  // transpose=true");
+    } else {
+      codegen.Emit("TMOV(" + dst_tile + ", " + src_tile + ");");
+    }
+
+    return "";  // Statement-emitting mode
+  };
+}
+
+// ============================================================================
 // CCE/PTO Codegen for block.alloc (no-op: allocation handled elsewhere)
 // ============================================================================
 CCECodegenFunc MakeBlockAllocCodegenCCE() {
@@ -419,7 +449,8 @@ REGISTER_OP("block.l0c_store")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockStoreType(args, kwargs, "block.l0c_store");
-    });
+    })
+    .f_codegen_cce(MakeBlockStoreCodegenCCE());
 
 REGISTER_OP("block.move")
     .set_op_category("BlockOp")
@@ -431,7 +462,8 @@ REGISTER_OP("block.move")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockMoveType(args, kwargs, "block.move");
-    });
+    })
+    .f_codegen_cce(MakeBlockMoveCodegenCCE());
 
 REGISTER_OP("block.alloc")
     .set_op_category("BlockOp")
