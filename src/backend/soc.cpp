@@ -113,33 +113,37 @@ int SoC::TotalCoreCount() const {
 
 // ========== 910B SoC Factory ==========
 
-SoCPtr Create910BSoC() {
-  // AIC (CUBE) core configuration
-  Core aic_core(ir::CoreType::CUBE, {
-                                        Mem(ir::MemorySpace::L1, 512ULL * 1024, 128),  // 512KB L1
-                                        Mem(ir::MemorySpace::L0A, 64ULL * 1024, 64),   // 64KB L0A
-                                        Mem(ir::MemorySpace::L0B, 64ULL * 1024, 64),   // 64KB L0B
-                                        Mem(ir::MemorySpace::L0C, 128ULL * 1024, 128)  // 128KB L0C
-                                    });
-
-  // AIV (VECTOR) core configuration
-  Core aiv_core(ir::CoreType::VECTOR, {
-                                          Mem(ir::MemorySpace::UB, 192ULL * 1024, 128),  // 192KB UB
+const SoC& Create910BSoC() {
+  // Singleton instance shared by all backends
+  static SoC soc = []() {
+    // AIC (CUBE) core configuration
+    Core aic_core(ir::CoreType::CUBE, {
+                                          Mem(ir::MemorySpace::L1, 512ULL * 1024, 128),  // 512KB L1
+                                          Mem(ir::MemorySpace::L0A, 64ULL * 1024, 64),   // 64KB L0A
+                                          Mem(ir::MemorySpace::L0B, 64ULL * 1024, 64),   // 64KB L0B
+                                          Mem(ir::MemorySpace::L0C, 128ULL * 1024, 128)  // 128KB L0C
                                       });
 
-  Cluster aic_cluster(aic_core, 1);  // 1 core per cluster
-  Cluster aiv_cluster(aiv_core, 1);  // 1 core per cluster
+    // AIV (VECTOR) core configuration
+    Core aiv_core(ir::CoreType::VECTOR, {
+                                            Mem(ir::MemorySpace::UB, 192ULL * 1024, 128),  // 192KB UB
+                                        });
 
-  Die die({{aic_cluster, 24}, {aiv_cluster, 48}});  // 24 AIC cores and 48 AIV cores per die
+    Cluster aic_cluster(aic_core, 1);  // 1 core per cluster
+    Cluster aiv_cluster(aiv_core, 1);  // 1 core per cluster
 
-  // Memory hierarchy graph for path finding
-  std::map<ir::MemorySpace, std::vector<ir::MemorySpace>> mem_graph;
-  mem_graph[ir::MemorySpace::DDR] = {ir::MemorySpace::UB, ir::MemorySpace::L1};
-  mem_graph[ir::MemorySpace::UB] = {ir::MemorySpace::DDR};
-  mem_graph[ir::MemorySpace::L1] = {ir::MemorySpace::L0A, ir::MemorySpace::L0B};
-  mem_graph[ir::MemorySpace::L0C] = {ir::MemorySpace::L1, ir::MemorySpace::DDR};
+    Die die({{aic_cluster, 24}, {aiv_cluster, 48}});  // 24 AIC cores and 48 AIV cores per die
 
-  return std::make_shared<SoC>(die, 1, std::move(mem_graph));
+    // Memory hierarchy graph for path finding
+    std::map<ir::MemorySpace, std::vector<ir::MemorySpace>> mem_graph;
+    mem_graph[ir::MemorySpace::DDR] = {ir::MemorySpace::UB, ir::MemorySpace::L1};
+    mem_graph[ir::MemorySpace::UB] = {ir::MemorySpace::DDR};
+    mem_graph[ir::MemorySpace::L1] = {ir::MemorySpace::L0A, ir::MemorySpace::L0B};
+    mem_graph[ir::MemorySpace::L0C] = {ir::MemorySpace::L1, ir::MemorySpace::DDR};
+
+    return SoC(die, 1, std::move(mem_graph));
+  }();
+  return soc;
 }
 
 }  // namespace backend

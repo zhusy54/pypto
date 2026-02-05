@@ -65,15 +65,6 @@ class Backend910B_CCE : public Backend {
   static Backend910B_CCE& Instance();
 
  private:
-  /**
-   * @brief Get 910B SoC instance for CCE backend
-   *
-   * Lazy initialization using Meyer's Singleton pattern.
-   * Each backend has its own SoC getter to allow independent evolution.
-   *
-   * @return Shared pointer to 910B SoC
-   */
-  static SoCPtr Get910BSoCForCCE();
 };
 
 }  // namespace backend

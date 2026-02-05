@@ -135,7 +135,7 @@ void BindBackend(nb::module_& m) {
       .def("get_mem_size", &Backend::GetMemSize, nb::arg("mem_type"),
            "Get total memory size for given memory type")
       .def_prop_ro(
-          "soc", [](const Backend& backend) -> const SoC& { return *backend.GetSoC(); }, "Get SoC object");
+          "soc", [](const Backend& backend) -> const SoC& { return backend.GetSoC(); }, "Get SoC object");
 
   // ========== Backend910B_CCE concrete implementation ==========
   nb::class_<Backend910B_CCE, Backend>(backend_mod, "Backend910B_CCE", "910B CCE backend implementation")

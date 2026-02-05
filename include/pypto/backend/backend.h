@@ -232,9 +232,9 @@ class Backend {
   /**
    * @brief Get the SoC structure
    *
-   * @return Shared pointer to const SoC
+   * @return Const reference to SoC
    */
-  [[nodiscard]] SoCPtr GetSoC() const { return soc_; }
+  [[nodiscard]] const SoC& GetSoC() const { return *soc_; }
 
  protected:
   /**
@@ -244,11 +244,11 @@ class Backend {
    *
    * @param soc Immutable SoC structure (includes memory hierarchy)
    */
-  explicit Backend(SoCPtr soc) : soc_(std::move(soc)) {}
+  explicit Backend(const SoC& soc) : soc_(&soc) {}
 
   Backend() = default;
 
-  SoCPtr soc_{nullptr};
+  const SoC* soc_{nullptr};
   std::unordered_map<std::string, BackendOpInfo> backend_op_registry_{};
 };
 

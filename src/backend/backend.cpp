@@ -154,7 +154,7 @@ std::vector<uint8_t> SerializeBackend(const Backend& backend) {
   // Create root object
   std::map<std::string, msgpack::object> root;
   root["type"] = msgpack::object(backend.GetTypeName(), zone);
-  root["soc"] = SerializeSoC(*backend.GetSoC(), zone);
+  root["soc"] = SerializeSoC(backend.GetSoC(), zone);
 
   packer.pack(msgpack::object(root, zone));
 

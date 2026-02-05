@@ -64,15 +64,6 @@ class Backend910B_PTO : public Backend {
   static Backend910B_PTO& Instance();
 
  private:
-  /**
-   * @brief Get 910B SoC instance for PTO backend
-   *
-   * Lazy initialization using Meyer's Singleton pattern.
-   * Each backend has its own SoC getter to allow independent evolution.
-   *
-   * @return Shared pointer to 910B SoC
-   */
-  static SoCPtr Get910BSoCForPTO();
 };
 
 }  // namespace backend

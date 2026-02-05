@@ -19,12 +19,7 @@
 namespace pypto {
 namespace backend {
 
-SoCPtr Backend910B_PTO::Get910BSoCForPTO() {
-  static SoCPtr soc = Create910BSoC();
-  return soc;
-}
-
-Backend910B_PTO::Backend910B_PTO() : Backend(Get910BSoCForPTO()) {
+Backend910B_PTO::Backend910B_PTO() : Backend(Create910BSoC()) {
   // Operators are registered via REGISTER_BACKEND_OP macro
   // in backend_910b_pto_ops.cpp during static initialization
 }

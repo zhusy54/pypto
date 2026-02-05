@@ -237,16 +237,14 @@ class SoC {
 };
 
 /**
- * @brief Create 910B SoC configuration
+ * @brief Create 910B SoC configuration (singleton)
  *
- * Factory function that creates a standard 910B SoC with:
- * - 24 AIC (CUBE) cores with L1, L0A, L0B, L0C memory
- * - 48 AIV (VECTOR) cores with UB memory
- * - Memory hierarchy graph
+ * Returns a reference to the singleton 910B SoC instance.
+ * The instance is created on first call and persists for program lifetime.
  *
- * @return Shared pointer to immutable 910B SoC
+ * @return Const reference to 910B SoC
  */
-SoCPtr Create910BSoC();
+const SoC& Create910BSoC();
 
 }  // namespace backend
 }  // namespace pypto
