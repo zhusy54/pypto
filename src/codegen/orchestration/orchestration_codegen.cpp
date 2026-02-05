@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/backend_config.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/ir/expr.h"
@@ -362,8 +362,8 @@ int GetOrCreateFuncId(const std::string& func_name, std::map<std::string, int>* 
 
 }  // namespace
 
-CoreType InferFunctionCoreType(const FunctionPtr& func, backend::BackendType backend_type) {
-  const backend::Backend* backend = backend::GetBackendInstance(backend_type);
+CoreType InferFunctionCoreType(const FunctionPtr& func) {
+  const backend::Backend* backend = backend::GetBackend();
   class CoreTypeCollector : public IRVisitor {
    public:
     explicit CoreTypeCollector(const backend::Backend* backend) : backend_(backend) {}
@@ -404,8 +404,7 @@ CoreType InferFunctionCoreType(const FunctionPtr& func, backend::BackendType bac
   return CoreType::VECTOR;
 }
 
-OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func,
-                                          backend::BackendType backend_type) {
+OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func) {
   using namespace pypto::ir;  // NOLINT(build/namespaces)
 
   CHECK(program != nullptr) << "Cannot generate orchestration for null program";
@@ -513,7 +512,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
     INTERNAL_CHECK(callee_func != nullptr)
         << "Internal error: function '" << callee_name
         << "' not found after validation. This should have been caught earlier.";
-    CoreType core_type = InferFunctionCoreType(callee_func, backend_type);
+    CoreType core_type = InferFunctionCoreType(callee_func);
     func_name_to_core_type[callee_name] = core_type;
 
     int func_id = GetOrCreateFuncId(callee_name, &func_name_to_id, &next_func_id);

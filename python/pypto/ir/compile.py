@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Optional
 
 from pypto.backend import BackendType
+from pypto.pypto_core import backend as _backend_core
 from pypto.pypto_core import codegen as _codegen_core
 from pypto.pypto_core import ir as _ir_core
 
@@ -56,6 +57,9 @@ def compile(
         ...     backend_type=BackendType.PTO
         ... )
     """
+    # Set the global backend type (idempotent - can be called multiple times)
+    _backend_core.set_backend_type(backend_type)
+
     if output_dir is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = os.path.join("build_output", f"{program.name}_{timestamp}")

@@ -60,8 +60,7 @@ class PassManager:
                 ("RunVerifier", lambda: passes.run_verifier()),
                 ("InitMemRef", lambda: passes.init_mem_ref()),
                 ("MemoryReuse", lambda: passes.basic_memory_reuse()),
-                # InsertSync is bound to CCE backend (pipe lookup)
-                ("InsertSync", lambda: passes.insert_sync(BackendType.CCE)),
+                ("InsertSync", lambda: passes.insert_sync()),
                 ("AddAlloc", lambda: passes.add_alloc()),
             ],
             OptimizationStrategy.PTOAS: [

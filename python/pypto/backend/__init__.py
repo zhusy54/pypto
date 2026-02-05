@@ -18,8 +18,13 @@ from pypto.pypto_core.backend import (
     Cluster,
     Core,
     Die,
+    # Backend configuration
+    get_backend_type,
+    is_backend_configured,
     # Components
     Mem,
+    reset_for_testing,
+    set_backend_type,
     SoC,
 )
 
@@ -33,4 +38,8 @@ __all__ = [
     "Backend910B_CCE",
     "Backend910B_PTO",
     "BackendType",
+    "set_backend_type",
+    "get_backend_type",
+    "is_backend_configured",
+    "reset_for_testing",
 ]

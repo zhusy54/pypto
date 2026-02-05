@@ -142,8 +142,5 @@ SoCPtr Create910BSoC() {
   return std::make_shared<SoC>(die, 1, std::move(mem_graph));
 }
 
-// Global shared 910B SoC instance
-SoCPtr g_910b_soc = Create910BSoC();
-
 }  // namespace backend
 }  // namespace pypto

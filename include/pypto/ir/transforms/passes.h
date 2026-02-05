@@ -169,11 +169,9 @@ Pass BasicMemoryReuse();
  *
  * Analyzes data dependencies and inserts synchronization operations
  * (sync_src, sync_dst, bar_v, bar_m) for correct execution across hardware pipes.
- * Uses the given backend type to obtain pipe info via GetBackendInstance(backend_type).
- *
- * @param backend_type Backend type (CCE or PTO)
+ * Uses the globally configured backend to obtain pipe info.
  */
-Pass InsertSync(backend::BackendType backend_type);
+Pass InsertSync();
 
 /**
  * @brief Create an add alloc pass

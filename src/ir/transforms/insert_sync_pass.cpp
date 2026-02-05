@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/backend_config.h"
 #include "pypto/core/error.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/kind_traits.h"
@@ -144,7 +144,7 @@ class EventIdManager {
  */
 class SyncInserter : public IRMutator {
  public:
-  explicit SyncInserter(pypto::backend::BackendType backend_type) : backend_type_(backend_type) {}
+  SyncInserter() = default;
 
   FunctionPtr Run(const FunctionPtr& func) {
     auto new_body = VisitStmt(func->body_);
@@ -153,14 +153,12 @@ class SyncInserter : public IRMutator {
   }
 
  private:
-  pypto::backend::BackendType backend_type_;
-
   /** @brief Get pipe type for a call: from IR op if set, else from backend (backend is required). */
   PipeType GetPipeForCall(const Call* call) {
     if (call->op_->GetPipe().has_value()) {
       return *call->op_->GetPipe();
     }
-    const pypto::backend::Backend* backend = pypto::backend::GetBackendInstance(backend_type_);
+    const pypto::backend::Backend* backend = pypto::backend::GetBackend();
     const auto* info = backend->GetOpInfo(call->op_->name_);
     if (info) return info->pipe;
     return PipeType::S;
@@ -778,10 +776,10 @@ namespace pass {
  * and inserts synchronization operations (sync_src, sync_dst, bar_v, bar_m)
  * to ensure correct execution order across different hardware pipes.
  */
-Pass InsertSync(pypto::backend::BackendType backend_type) {
+Pass InsertSync() {
   return CreateFunctionPass(
-      [backend_type](const FunctionPtr& func) {
-        SyncInserter inserter(backend_type);
+      [](const FunctionPtr& func) {
+        SyncInserter inserter;
         return inserter.Run(func);
       },
       "InsertSync");

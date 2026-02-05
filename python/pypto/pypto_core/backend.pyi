@@ -84,3 +84,49 @@ class Backend910B_PTO(Backend):
     """910B PTO backend implementation."""
 
     def __init__(self) -> None: ...
+
+def set_backend_type(backend_type: BackendType) -> None:
+    """
+    Set the global backend type.
+
+    Must be called before any backend operations. Can be called multiple times
+    with the same type (idempotent), but will raise an error if attempting to
+    change to a different type.
+
+    Args:
+        backend_type: The backend type to use (CCE or PTO)
+
+    Raises:
+        ValueError: If attempting to change an already-set backend type
+    """
+    ...
+
+def get_backend_type() -> BackendType:
+    """
+    Get the configured backend type.
+
+    Returns:
+        The configured backend type
+
+    Raises:
+        ValueError: If backend type has not been configured
+    """
+    ...
+
+def is_backend_configured() -> bool:
+    """
+    Check if backend type has been configured.
+
+    Returns:
+        True if set_backend_type() has been called, False otherwise
+    """
+    ...
+
+def reset_for_testing() -> None:
+    """
+    Reset backend configuration (for testing only).
+
+    WARNING: This function should ONLY be used in tests to reset the
+    backend configuration between test cases. Do NOT use in production code.
+    """
+    ...

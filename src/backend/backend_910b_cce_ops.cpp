@@ -387,30 +387,18 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "block.get_block_idx")
 // Reduction Operations
 // ============================================================================
 
-static std::string MakeBlockSumCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
+// Helper function for reduction operations (sum, max)
+static std::string MakeBlockReductionCodegenCCE(const std::string& op_prefix, const ir::CallPtr& op,
+                                                codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
-  CHECK(op->args_.size() == 1) << "block.sum requires 1 argument";
+  CHECK(op->args_.size() == 1) << op_prefix << " requires 1 argument";
   std::string src = codegen.GetExprAsCode(op->args_[0]);
   std::string dst = codegen.GetCurrentResultTarget();
   int axis = op->GetKwarg<int>("axis");
   if (axis == 0) {
-    codegen.Emit("TCOLSUM(" + dst + ", " + src + ");");
+    codegen.Emit("TCOL" + op_prefix + "(" + dst + ", " + src + ");");
   } else {
-    codegen.Emit("TROWSUM(" + dst + ", " + src + ");");
-  }
-  return "";
-}
-
-static std::string MakeBlockMaxCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
-  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
-  CHECK(op->args_.size() == 1) << "block.max requires 1 argument";
-  std::string src = codegen.GetExprAsCode(op->args_[0]);
-  std::string dst = codegen.GetCurrentResultTarget();
-  int axis = op->GetKwarg<int>("axis");
-  if (axis == 0) {
-    codegen.Emit("TCOLMAX(" + dst + ", " + src + ");");
-  } else {
-    codegen.Emit("TROWMAX(" + dst + ", " + src + ");");
+    codegen.Emit("TROW" + op_prefix + "(" + dst + ", " + src + ");");
   }
   return "";
 }
@@ -436,13 +424,13 @@ static std::string MakeBlockRowMaxCodegenCCE(const ir::CallPtr& op, codegen::Cod
 REGISTER_BACKEND_OP(Backend910B_CCE, "block.sum")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeBlockSumCodegenCCE(op, codegen);
+      return MakeBlockReductionCodegenCCE("SUM", op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "block.max")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeBlockMaxCodegenCCE(op, codegen);
+      return MakeBlockReductionCodegenCCE("MAX", op, codegen);
     });
 
 REGISTER_BACKEND_OP(Backend910B_CCE, "block.row_sum")
@@ -508,26 +496,6 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "block.view")
     .set_pipe(ir::PipeType::V)
     .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
       return MakeBlockTransformCodegenCCE(op, codegen);
-    });
-
-// ============================================================================
-// Batch Operations
-// ============================================================================
-
-static std::string MakeBlockBatchMatmulCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
-  auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
-  CHECK(op->args_.size() == 2) << "block.batch_matmul requires 2 arguments: lhs, rhs";
-  std::string lhs = codegen.GetExprAsCode(op->args_[0]);
-  std::string rhs = codegen.GetExprAsCode(op->args_[1]);
-  std::string dst = codegen.GetCurrentResultTarget();
-  codegen.Emit("TMATMUL(" + dst + ", " + lhs + ", " + rhs + ");");
-  return "";
-}
-
-REGISTER_BACKEND_OP(Backend910B_CCE, "block.batch_matmul")
-    .set_pipe(ir::PipeType::M)
-    .f_codegen([](const ir::CallPtr& op, codegen::CodegenBase& codegen) {
-      return MakeBlockBatchMatmulCodegenCCE(op, codegen);
     });
 
 // ============================================================================

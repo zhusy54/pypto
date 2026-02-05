@@ -10,6 +10,7 @@
  */
 
 #include "pypto/backend/backend.h"
+#include "pypto/backend/backend_config.h"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
@@ -143,6 +144,22 @@ void BindBackend(nb::module_& m) {
   // ========== Backend910B_PTO concrete implementation ==========
   nb::class_<Backend910B_PTO, Backend>(backend_mod, "Backend910B_PTO", "910B PTO backend implementation")
       .def(nb::init<>(), "Create 910B PTO backend with standard configuration");
+
+  // ========== Backend configuration functions ==========
+  backend_mod.def(
+      "set_backend_type", &backend::BackendConfig::SetBackendType, nb::arg("backend_type"),
+      "Set the global backend type. Must be called before any backend operations. "
+      "Can be called multiple times with the same type (idempotent).");
+
+  backend_mod.def("get_backend_type", &backend::BackendConfig::GetBackendType,
+                  "Get the configured backend type. Throws error if not configured.");
+
+  backend_mod.def("is_backend_configured", &backend::BackendConfig::IsConfigured,
+                  "Check if backend type has been configured.");
+
+  backend_mod.def("reset_for_testing", &backend::BackendConfig::ResetForTesting,
+                  "Reset backend configuration (for testing only). "
+                  "WARNING: Only use in tests to reset between test cases.");
 }
 
 }  // namespace python

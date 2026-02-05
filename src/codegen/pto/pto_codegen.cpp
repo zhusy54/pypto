@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/backend_config.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -126,7 +126,12 @@ class MemRefCollectorVisitor : public ir::IRVisitor {
 // Constructors
 // ========================================================================
 
-PTOCodegen::PTOCodegen() : backend_(backend::GetBackendInstance(backend::BackendType::PTO)) {}
+PTOCodegen::PTOCodegen() : backend_(backend::GetBackend()) {
+  auto type = backend::GetBackendType();
+  CHECK(type == backend::BackendType::PTO)
+      << "PTOCodegen requires PTO backend, but "
+      << (type == backend::BackendType::CCE ? "CCE" : "unknown") << " is configured";
+}
 
 PTOCodegen::PTOCodegen(const backend::Backend* backend) : backend_(backend) {
   CHECK(backend != nullptr) << "Backend cannot be null";
