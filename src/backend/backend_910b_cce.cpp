@@ -20,8 +20,8 @@
 namespace pypto {
 namespace backend {
 
-// Shared 910B SoC instance
-static SoCPtr g_910b_soc = Create910BSoC();
+// Shared 910B SoC instance (defined in soc.cpp)
+extern SoCPtr g_910b_soc;
 
 Backend910B_CCE::Backend910B_CCE() : Backend(g_910b_soc) {
   // Operators are registered via REGISTER_BACKEND_OP macro

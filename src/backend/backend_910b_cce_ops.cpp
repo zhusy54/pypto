@@ -36,7 +36,7 @@ namespace backend {
 
 // Helper function for binary elementwise operations
 static std::string MakeBinaryElementwiseCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
-                                                    codegen::CodegenBase& codegen_base) {
+                                                   codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "Binary elementwise op requires 2 arguments";
   std::string lhs = codegen.GetExprAsCode(op->args_[0]);
@@ -48,7 +48,7 @@ static std::string MakeBinaryElementwiseCodegenCCE(const std::string& cce_op_nam
 
 // Helper function for binary scalar operations
 static std::string MakeBinaryScalarCodegenCCE(const std::string& cce_op_name, const ir::CallPtr& op,
-                                               codegen::CodegenBase& codegen_base) {
+                                              codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   CHECK(op->args_.size() == 2) << "Binary scalar op requires 2 arguments";
   std::string lhs = codegen.GetExprAsCode(op->args_[0]);
@@ -142,7 +142,8 @@ static std::string MakeBlockStoreCodegenCCE(const ir::CallPtr& op, codegen::Code
 }
 
 // Helper function for block.l0c_store
-// IR signature: (tile, row_offset, col_offset, height, width, output_tensor) = 6 args, or legacy (buffer, offset, value) = 3 args
+// IR signature: (tile, row_offset, col_offset, height, width, output_tensor) = 6 args, or legacy (buffer,
+// offset, value) = 3 args
 static std::string MakeBlockL0CStoreCodegenCCE(const ir::CallPtr& op, codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::CCECodegen&>(codegen_base);
   std::string buffer;
@@ -157,7 +158,8 @@ static std::string MakeBlockL0CStoreCodegenCCE(const ir::CallPtr& op, codegen::C
     offset = codegen.GetExprAsCode(op->args_[1]);
     value = codegen.GetExprAsCode(op->args_[2]);
   } else {
-    CHECK(false) << "block.l0c_store requires 3 (buffer, offset, value) or 6 (tile, row, col, height, width, output_tensor) arguments";
+    CHECK(false) << "block.l0c_store requires 3 (buffer, offset, value) or 6 (tile, row, col, height, width, "
+                    "output_tensor) arguments";
   }
   codegen.Emit("TSTORE_L0C(" + buffer + ", " + offset + ", " + value + ");");
   return "";
@@ -534,15 +536,24 @@ REGISTER_BACKEND_OP(Backend910B_CCE, "block.batch_matmul")
 
 static std::string PipeTypeToCCEString(ir::PipeType pipe) {
   switch (pipe) {
-    case ir::PipeType::MTE1: return "PIPE_MTE1";
-    case ir::PipeType::MTE2: return "PIPE_MTE2";
-    case ir::PipeType::MTE3: return "PIPE_MTE3";
-    case ir::PipeType::M: return "PIPE_M";
-    case ir::PipeType::V: return "PIPE_V";
-    case ir::PipeType::S: return "PIPE_S";
-    case ir::PipeType::FIX: return "PIPE_FIX";
-    case ir::PipeType::ALL: return "PIPE_ALL";
-    default: return "PIPE_V";
+    case ir::PipeType::MTE1:
+      return "PIPE_MTE1";
+    case ir::PipeType::MTE2:
+      return "PIPE_MTE2";
+    case ir::PipeType::MTE3:
+      return "PIPE_MTE3";
+    case ir::PipeType::M:
+      return "PIPE_M";
+    case ir::PipeType::V:
+      return "PIPE_V";
+    case ir::PipeType::S:
+      return "PIPE_S";
+    case ir::PipeType::FIX:
+      return "PIPE_FIX";
+    case ir::PipeType::ALL:
+      return "PIPE_ALL";
+    default:
+      return "PIPE_V";
   }
 }
 

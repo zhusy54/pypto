@@ -9,11 +9,10 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend_910b_pto.h"
-
 #include <sstream>
 #include <string>
 
+#include "pypto/backend/backend_910b_pto.h"
 #include "pypto/codegen/codegen_base.h"
 #include "pypto/codegen/pto/pto_codegen.h"
 #include "pypto/core/common.h"
@@ -37,7 +36,7 @@ using ir::Var;
 
 // Helper function for binary tile-tile operations
 static std::string MakeBinaryTileTileCodegenPTO(const std::string& pto_op_name, const CallPtr& op,
-                                                 codegen::CodegenBase& codegen_base) {
+                                                codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
   std::string lhs = codegen.GetExprAsCode(op->args_[0]);
   std::string rhs = codegen.GetExprAsCode(op->args_[1]);
@@ -49,7 +48,7 @@ static std::string MakeBinaryTileTileCodegenPTO(const std::string& pto_op_name, 
 
 // Helper function for binary tile-scalar operations
 static std::string MakeBinaryTileScalarCodegenPTO(const std::string& pto_op_name, const CallPtr& op,
-                                                   codegen::CodegenBase& codegen_base) {
+                                                  codegen::CodegenBase& codegen_base) {
   auto& codegen = dynamic_cast<codegen::PTOCodegen&>(codegen_base);
   std::string lhs = codegen.GetExprAsCode(op->args_[0]);
   std::string rhs = codegen.GetExprAsCode(op->args_[1]);
