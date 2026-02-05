@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "pypto/backend/backend.h"
+#include "pypto/backend/backend_910b_pto.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -27,7 +28,6 @@
 #include "pypto/ir/function.h"
 #include "pypto/ir/kind_traits.h"
 #include "pypto/ir/memref.h"
-#include "pypto/ir/op_registry.h"
 #include "pypto/ir/program.h"
 #include "pypto/ir/scalar_expr.h"
 #include "pypto/ir/stmt.h"
@@ -131,7 +131,7 @@ PTOCodegen::PTOCodegen(const backend::Backend* backend) : backend_(backend) {
   CHECK(backend != nullptr) << "Backend cannot be null";
 }
 
-PTOCodegen::PTOCodegen() : backend_(nullptr) {}
+PTOCodegen::PTOCodegen() : backend_(&backend::Backend910B_PTO::Instance()) {}
 
 // ========================================================================
 // Generate entry and GenerateFunction
@@ -354,21 +354,17 @@ std::string PTOCodegen::GetTileBufForMemRef(const MemRefPtr& memref) {
 
 void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
   if (auto call = As<ir::Call>(op->value_)) {
-    auto& op_registry = ir::OpRegistry::GetInstance();
-    if (op_registry.IsRegistered(call->op_->name_)) {
-      const auto& entry = op_registry.GetEntry(call->op_->name_);
-      if (entry.HasPTOCodegen()) {
-        std::string result_buf;
-        if (auto tile_type = As<TileType>(op->var_->GetType())) {
-          if (tile_type->memref_.has_value()) {
-            result_buf = GetTileBufForMemRef(tile_type->memref_.value());
-          }
+    if (backend_ != nullptr && backend_->GetOpInfo(call->op_->name_) != nullptr) {
+      std::string result_buf;
+      if (auto tile_type = As<TileType>(op->var_->GetType())) {
+        if (tile_type->memref_.has_value()) {
+          result_buf = GetTileBufForMemRef(tile_type->memref_.value());
         }
-        current_result_buf_ = result_buf;
-        VisitExpr(op->value_);
-        current_result_buf_.clear();
-        return;
       }
+      current_result_buf_ = result_buf;
+      VisitExpr(op->value_);
+      current_result_buf_.clear();
+      return;
     }
   }
 
@@ -382,32 +378,15 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
 void PTOCodegen::VisitExpr_(const CallPtr& op) {
   const std::string& op_name = op->op_->name_;
 
-  // Query backend for op codegen info
-  if (backend_ != nullptr) {
-    const auto* op_info = backend_->GetOpInfo(op_name);
-    if (op_info != nullptr) {
-      std::string mlir_line = op_info->codegen_func(op, *this);
-      if (!mlir_line.empty()) {
-        Emit(mlir_line);
-      }
-      return;
-    }
+  CHECK(backend_ != nullptr) << "Backend must not be null; use PTOCodegen(backend) or default backend";
+  const auto* op_info = backend_->GetOpInfo(op_name);
+  if (op_info == nullptr) {
+    ThrowNoCodegenForCall(op_name);
   }
-
-  // Fallback to OpRegistry for backward compatibility (will be removed)
-  auto& op_registry = ir::OpRegistry::GetInstance();
-  if (op_registry.IsRegistered(op_name)) {
-    const auto& entry = op_registry.GetEntry(op_name);
-    if (entry.HasPTOCodegen()) {
-      std::string mlir_line = entry.GetCodegenPTO()(op, *this);
-      if (!mlir_line.empty()) {
-        Emit(mlir_line);
-      }
-      return;
-    }
+  std::string mlir_line = op_info->codegen_func(op, *this);
+  if (!mlir_line.empty()) {
+    Emit(mlir_line);
   }
-
-  ThrowNoCodegenForCall(op_name);
 }
 
 // ========================================================================

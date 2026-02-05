@@ -17,10 +17,10 @@
 #include <vector>
 
 #include "pypto/backend/backend.h"
+#include "pypto/backend/backend_910b_cce.h"
 #include "pypto/codegen/orchestration/orchestration_codegen.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
-#include "pypto/ir/op_registry.h"
 #include "pypto/ir/program.h"
 #include "pypto/ir/scalar_expr.h"
 #include "pypto/ir/type.h"
@@ -48,7 +48,7 @@ CCECodegen::CCECodegen(const backend::Backend* backend) : backend_(backend) {
   CHECK(backend != nullptr) << "Backend cannot be null";
 }
 
-CCECodegen::CCECodegen() : backend_(nullptr) {}
+CCECodegen::CCECodegen() : backend_(&backend::Backend910B_CCE::Instance()) {}
 
 std::map<std::string, std::string> CCECodegen::Generate(const ir::ProgramPtr& program) {
   CHECK(program != nullptr) << "Cannot generate code for null program";
@@ -567,26 +567,13 @@ void CCECodegen::RegisterOutputPointer(const std::string& output_var_name,
 void CCECodegen::VisitExpr_(const ir::CallPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null Call";
 
-  // Query backend for op codegen info
-  if (backend_ != nullptr) {
-    const auto* op_info = backend_->GetOpInfo(op->op_->name_);
-    if (op_info != nullptr) {
-      std::string result = op_info->codegen_func(op, *this);
-      current_expr_value_ = result;
-      return;
-    }
+  CHECK(backend_ != nullptr) << "Backend must not be null; use CCECodegen(backend) or default backend";
+  const auto* op_info = backend_->GetOpInfo(op->op_->name_);
+  if (op_info == nullptr) {
+    ThrowNoCodegenForCall(op->op_->name_);
   }
-
-  // Fallback to OpRegistry for backward compatibility (will be removed)
-  const auto& op_entry = ir::OpRegistry::GetInstance().GetEntry(op->op_->name_);
-  if (op_entry.HasCCECodegen()) {
-    const auto& codegen_func = op_entry.GetCodegenCCE();
-    std::string result = codegen_func(op, *this);
-    current_expr_value_ = result;
-    return;
-  }
-
-  ThrowNoCodegenForCall(op->op_->name_);
+  std::string result = op_info->codegen_func(op, *this);
+  current_expr_value_ = result;
 }
 
 // ---- Binary Operators ----

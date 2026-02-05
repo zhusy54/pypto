@@ -136,6 +136,7 @@ set(PYPTO_SOURCES
     src/backend/backend_910b_cce.cpp
     src/backend/backend_910b_cce_ops.cpp
     src/backend/backend_910b_pto.cpp
+    src/backend/backend_910b_pto_ops.cpp
     src/backend/backend_registry.cpp
 )
 
