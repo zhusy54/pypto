@@ -16,7 +16,8 @@
 #include <string>
 #include <vector>
 
-#include "pypto/backend/backend_910b.h"
+#include "pypto/backend/backend_910b_cce.h"
+#include "pypto/backend/backend_910b_pto.h"
 #include "pypto/core/logging.h"
 
 namespace pypto {
@@ -32,37 +33,42 @@ void BackendRegistry::Register(const std::string& type_name, CreateFunc func) {
   registry_[type_name] = func;
 }
 
-std::unique_ptr<Backend> BackendRegistry::Create(
-    const std::string& type_name, std::shared_ptr<const SoC> soc,
-    const std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>& mem_graph) {
+std::unique_ptr<Backend> BackendRegistry::Create(const std::string& type_name,
+                                                 std::shared_ptr<const SoC> soc) {
   auto it = registry_.find(type_name);
   CHECK(it != registry_.end()) << "Unknown backend type: " << type_name;
-  return it->second(soc, mem_graph);
+  return it->second(soc);
 }
 
 bool BackendRegistry::IsRegistered(const std::string& type_name) const {
   return registry_.find(type_name) != registry_.end();
 }
 
-std::unique_ptr<Backend> CreateBackendFromRegistry(
-    const std::string& type_name, std::shared_ptr<const SoC> soc,
-    const std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>& mem_graph) {
-  return BackendRegistry::Instance().Create(type_name, soc, mem_graph);
+std::unique_ptr<Backend> CreateBackendFromRegistry(const std::string& type_name,
+                                                   std::shared_ptr<const SoC> soc) {
+  return BackendRegistry::Instance().Create(type_name, soc);
 }
 
-// Auto-register Backend910B
+// Auto-register Backend910B_CCE and Backend910B_PTO
 namespace {
-bool RegisterBackend910B() {
-  BackendRegistry::Instance().Register(
-      "910B", [](std::shared_ptr<const SoC> /*unused*/,
-                 std::map<ir::MemorySpace, std::vector<ir::MemorySpace>> /*unused*/) {
-        // Backend910B creates its own SoC and memory hierarchy, ignore parameters
-        return std::make_unique<Backend910B>();
-      });
+bool RegisterBackend910B_CCE() {
+  BackendRegistry::Instance().Register("910B_CCE", [](std::shared_ptr<const SoC> /*unused*/) {
+    // Backend910B_CCE creates its own SoC, ignore parameter
+    return std::make_unique<Backend910B_CCE>();
+  });
   return true;
 }
 
-static bool backend_910b_registered = RegisterBackend910B();
+bool RegisterBackend910B_PTO() {
+  BackendRegistry::Instance().Register("910B_PTO", [](std::shared_ptr<const SoC> /*unused*/) {
+    // Backend910B_PTO creates its own SoC, ignore parameter
+    return std::make_unique<Backend910B_PTO>();
+  });
+  return true;
+}
+
+static bool backend_910b_cce_registered = RegisterBackend910B_CCE();
+static bool backend_910b_pto_registered = RegisterBackend910B_PTO();
 }  // namespace
 
 }  // namespace backend

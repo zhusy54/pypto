@@ -60,6 +60,7 @@ class SoC:
 class Backend:
     """Abstract backend base class."""
 
+    def get_type_name(self) -> str: ...
     def export_to_file(self, path: str) -> None: ...
     @staticmethod
     def import_from_file(path: str) -> "Backend": ...
@@ -68,7 +69,12 @@ class Backend:
     @property
     def soc(self) -> SoC: ...
 
-class Backend910B(Backend):
-    """910B backend implementation."""
+class Backend910B_CCE(Backend):
+    """910B CCE backend implementation."""
+
+    def __init__(self) -> None: ...
+
+class Backend910B_PTO(Backend):
+    """910B PTO backend implementation."""
 
     def __init__(self) -> None: ...

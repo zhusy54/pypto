@@ -13,11 +13,9 @@
 #define PYPTO_BACKEND_BACKEND_REGISTRY_H_
 
 #include <functional>
-#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 #include "pypto/backend/backend.h"
 #include "pypto/backend/soc.h"
@@ -33,8 +31,7 @@ namespace backend {
  */
 class BackendRegistry {
  public:
-  using CreateFunc = std::function<std::unique_ptr<Backend>(
-      std::shared_ptr<const SoC>, std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>)>;
+  using CreateFunc = std::function<std::unique_ptr<Backend>(std::shared_ptr<const SoC>)>;
 
   /**
    * @brief Get the singleton instance
@@ -46,8 +43,8 @@ class BackendRegistry {
   /**
    * @brief Register a backend type
    *
-   * @param type_name Backend type name (e.g., "910B")
-   * @param func Factory function that creates backend from SoC and memory graph
+   * @param type_name Backend type name (e.g., "910B_CCE", "910B_PTO")
+   * @param func Factory function that creates backend from SoC
    */
   void Register(const std::string& type_name, CreateFunc func);
 
@@ -55,13 +52,11 @@ class BackendRegistry {
    * @brief Create a backend instance
    *
    * @param type_name Backend type name
-   * @param soc SoC structure
-   * @param mem_graph Memory hierarchy adjacency list
+   * @param soc SoC structure (includes memory hierarchy)
    * @return Unique pointer to created backend
    * @throws RuntimeError if type_name is not registered
    */
-  std::unique_ptr<Backend> Create(const std::string& type_name, std::shared_ptr<const SoC> soc,
-                                  const std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>& mem_graph);
+  std::unique_ptr<Backend> Create(const std::string& type_name, std::shared_ptr<const SoC> soc);
 
   /**
    * @brief Check if a type is registered
@@ -82,13 +77,11 @@ class BackendRegistry {
  * Called by Backend::ImportFromFile to create backend from registry.
  *
  * @param type_name Backend type name
- * @param soc SoC structure
- * @param mem_graph Memory hierarchy adjacency list
+ * @param soc SoC structure (includes memory hierarchy)
  * @return Unique pointer to created backend
  */
-std::unique_ptr<Backend> CreateBackendFromRegistry(
-    const std::string& type_name, std::shared_ptr<const SoC> soc,
-    const std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>& mem_graph);
+std::unique_ptr<Backend> CreateBackendFromRegistry(const std::string& type_name,
+                                                   std::shared_ptr<const SoC> soc);
 
 }  // namespace backend
 }  // namespace pypto

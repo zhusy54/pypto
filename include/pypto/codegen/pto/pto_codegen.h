@@ -27,6 +27,12 @@
 #include "pypto/ir/type.h"
 
 namespace pypto {
+
+// Forward declaration
+namespace backend {
+class Backend;
+}  // namespace backend
+
 namespace codegen {
 
 /**
@@ -38,7 +44,15 @@ namespace codegen {
  */
 class PTOCodegen : public CodegenBase {
  public:
-  PTOCodegen() = default;
+  /**
+   * @brief Construct PTO codegen with backend
+   *
+   * @param backend Backend instance for querying operator information
+   */
+  explicit PTOCodegen(const backend::Backend* backend);
+
+  PTOCodegen();
+
   ~PTOCodegen() override = default;
 
   /**
@@ -154,6 +168,8 @@ class PTOCodegen : public CodegenBase {
   // Current function context
   ir::FunctionPtr current_function_;
   std::string current_result_buf_;
+
+  const backend::Backend* backend_;  ///< Backend instance for querying op info
 };
 
 }  // namespace codegen

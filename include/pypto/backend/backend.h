@@ -13,26 +13,120 @@
 #define PYPTO_BACKEND_BACKEND_H_
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "pypto/backend/soc.h"
+#include "pypto/core/common.h"
 #include "pypto/ir/memref.h"
+#include "pypto/ir/pipe.h"
 
 namespace pypto {
+
+// Forward declarations
+namespace codegen {
+class CodegenBase;
+}  // namespace codegen
+
+namespace ir {
+class Call;
+using CallPtr = std::shared_ptr<const Call>;
+}  // namespace ir
+
 namespace backend {
+
+// Backend op code generation function type
+using BackendCodegenFunc = std::function<std::string(const ir::CallPtr& op, codegen::CodegenBase& codegen)>;
+
+// Forward declaration
+class Backend;
+
+/**
+ * @brief Backend op registration entry for fluent interface
+ *
+ * Provides a fluent interface for registering backend-specific operator
+ * information (pipe type and code generation function). The entry is
+ * automatically finalized in the destructor.
+ */
+class BackendOpRegistryEntry {
+ public:
+  /**
+   * @brief Construct registration entry
+   *
+   * @param backend Backend instance to register to
+   * @param op_name Operator name
+   */
+  BackendOpRegistryEntry(Backend* backend, const std::string& op_name)
+      : backend_(backend), op_name_(op_name) {}
+
+  /**
+   * @brief Set pipeline type
+   *
+   * @param pipe Pipeline type (e.g., M, V, MTE2)
+   * @return Reference to this entry for method chaining
+   */
+  BackendOpRegistryEntry& set_pipe(ir::PipeType pipe);
+
+  /**
+   * @brief Set code generation function
+   *
+   * @param func Code generation function
+   * @return Reference to this entry for method chaining
+   */
+  BackendOpRegistryEntry& f_codegen(BackendCodegenFunc func);
+
+  /**
+   * @brief Finalize registration in destructor
+   *
+   * Automatically registers the operator with the backend if both
+   * pipe type and codegen function are set.
+   */
+  ~BackendOpRegistryEntry();
+
+  // Disable copy and move to prevent duplicate registration
+  BackendOpRegistryEntry(const BackendOpRegistryEntry&) = delete;
+  BackendOpRegistryEntry& operator=(const BackendOpRegistryEntry&) = delete;
+  BackendOpRegistryEntry(BackendOpRegistryEntry&&) = delete;
+  BackendOpRegistryEntry& operator=(BackendOpRegistryEntry&&) = delete;
+
+ private:
+  Backend* backend_;
+  std::string op_name_;
+  std::optional<ir::PipeType> pipe_;
+  std::optional<BackendCodegenFunc> codegen_func_;
+};
+
+// Macro for registering backend operators with fluent interface
+#define REGISTER_BACKEND_OP(BackendClass, OpName)                                                 \
+  static PYPTO_STR_CONCAT(PYPTO_UNUSED ::pypto::backend::BackendOpRegistryEntry& BackendOpEntry_, \
+                          __COUNTER__) = BackendClass::Instance().RegisterOp(OpName)
 
 /**
  * @brief Abstract backend base class
  *
  * Represents a hardware backend configuration with SoC structure.
- * Provides serialization/deserialization and abstract methods for
- * backend-specific operations.
+ * Provides serialization/deserialization, operator registration,
+ * and abstract methods for backend-specific operations.
  */
 class Backend {
  public:
+  /**
+   * @brief Backend operator information
+   *
+   * Stores backend-specific operator metadata including pipeline type
+   * and code generation function.
+   */
+  struct BackendOpInfo {
+    ir::PipeType pipe;
+    BackendCodegenFunc codegen_func;
+  };
+
   virtual ~Backend() = default;
 
   // Disable copy and move to enforce unique ownership
@@ -40,6 +134,35 @@ class Backend {
   Backend& operator=(const Backend&) = delete;
   Backend(Backend&&) = delete;
   Backend& operator=(Backend&&) = delete;
+
+  /**
+   * @brief Register an operator with backend-specific information
+   *
+   * Returns a registration entry for fluent interface configuration.
+   *
+   * @param op_name Operator name
+   * @return Registration entry for method chaining
+   */
+  BackendOpRegistryEntry RegisterOp(const std::string& op_name);
+
+  /**
+   * @brief Finalize operator registration
+   *
+   * Internal method called by BackendOpRegistryEntry destructor.
+   *
+   * @param op_name Operator name
+   * @param pipe Pipeline type
+   * @param func Code generation function
+   */
+  void FinalizeOpRegistration(const std::string& op_name, ir::PipeType pipe, BackendCodegenFunc func);
+
+  /**
+   * @brief Get backend-specific operator information
+   *
+   * @param op_name Operator name
+   * @return Pointer to operator info, or nullptr if not registered
+   */
+  [[nodiscard]] const BackendOpInfo* GetOpInfo(const std::string& op_name) const;
 
   /**
    * @brief Export backend to msgpack file
@@ -83,7 +206,7 @@ class Backend {
   /**
    * @brief Get backend type name for serialization
    *
-   * @return Backend type name (e.g., "910B")
+   * @return Backend type name (e.g., "910B_CCE", "910B_PTO")
    */
   [[nodiscard]] virtual std::string GetTypeName() const = 0;
 
@@ -94,28 +217,20 @@ class Backend {
    */
   [[nodiscard]] SoCPtr GetSoC() const { return soc_; }
 
-  /**
-   * @brief Get the memory hierarchy graph
-   *
-   * @return Const reference to memory adjacency list
-   */
-  [[nodiscard]] const std::map<ir::MemorySpace, std::vector<ir::MemorySpace>>& GetMemoryGraph() const {
-    return mem_graph_;
-  }
-
  protected:
   /**
-   * @brief Construct backend with SoC and memory hierarchy
+   * @brief Construct backend with SoC
    *
    * Protected constructor - only derived classes can instantiate Backend.
    *
-   * @param soc Immutable SoC structure
-   * @param mem_graph Memory hierarchy adjacency list
+   * @param soc Immutable SoC structure (includes memory hierarchy)
    */
+  explicit Backend(SoCPtr soc) : soc_(std::move(soc)) {}
+
   Backend() = default;
 
   SoCPtr soc_{nullptr};
-  std::map<ir::MemorySpace, std::vector<ir::MemorySpace>> mem_graph_{};
+  std::unordered_map<std::string, BackendOpInfo> backend_op_registry_{};
 };
 
 }  // namespace backend

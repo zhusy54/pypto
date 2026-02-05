@@ -133,7 +133,9 @@ set(PYPTO_SOURCES
     src/ir/serialization/type_deserializers.cpp
     src/backend/soc.cpp
     src/backend/backend.cpp
-    src/backend/backend_910b.cpp
+    src/backend/backend_910b_cce.cpp
+    src/backend/backend_910b_cce_ops.cpp
+    src/backend/backend_910b_pto.cpp
     src/backend/backend_registry.cpp
 )
 

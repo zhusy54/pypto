@@ -26,6 +26,12 @@
 #include "pypto/ir/type.h"
 
 namespace pypto {
+
+// Forward declaration
+namespace backend {
+class Backend;
+}  // namespace backend
+
 namespace codegen {
 
 /**
@@ -39,6 +45,13 @@ namespace codegen {
  */
 class CCECodegen : public CodegenBase {
  public:
+  /**
+   * @brief Construct CCE codegen with backend
+   *
+   * @param backend Backend instance for querying operator information
+   */
+  explicit CCECodegen(const backend::Backend* backend);
+
   CCECodegen();
 
   /**
@@ -240,9 +253,10 @@ class CCECodegen : public CodegenBase {
   std::string current_expr_value_;         ///< OUTPUT: Inline C++ value for scalar expressions
   std::vector<std::string> yield_buffer_;  ///< Temporary storage for yielded values from loops
 
-  CodeEmitter emitter_;           ///< Code emitter for structured output
-  CodeContext context_;           ///< Context for variable tracking
-  TypeConverter type_converter_;  ///< Type converter
+  CodeEmitter emitter_;              ///< Code emitter for structured output
+  CodeContext context_;              ///< Context for variable tracking
+  TypeConverter type_converter_;     ///< Type converter
+  const backend::Backend* backend_;  ///< Backend instance for querying op info
 };
 
 }  // namespace codegen

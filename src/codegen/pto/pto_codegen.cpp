@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -121,6 +122,16 @@ class MemRefCollectorVisitor : public ir::IRVisitor {
     }
   }
 };
+
+// ========================================================================
+// Constructors
+// ========================================================================
+
+PTOCodegen::PTOCodegen(const backend::Backend* backend) : backend_(backend) {
+  CHECK(backend != nullptr) << "Backend cannot be null";
+}
+
+PTOCodegen::PTOCodegen() : backend_(nullptr) {}
 
 // ========================================================================
 // Generate entry and GenerateFunction
@@ -371,6 +382,19 @@ void PTOCodegen::VisitStmt_(const AssignStmtPtr& op) {
 void PTOCodegen::VisitExpr_(const CallPtr& op) {
   const std::string& op_name = op->op_->name_;
 
+  // Query backend for op codegen info
+  if (backend_ != nullptr) {
+    const auto* op_info = backend_->GetOpInfo(op_name);
+    if (op_info != nullptr) {
+      std::string mlir_line = op_info->codegen_func(op, *this);
+      if (!mlir_line.empty()) {
+        Emit(mlir_line);
+      }
+      return;
+    }
+  }
+
+  // Fallback to OpRegistry for backward compatibility (will be removed)
   auto& op_registry = ir::OpRegistry::GetInstance();
   if (op_registry.IsRegistered(op_name)) {
     const auto& entry = op_registry.GetEntry(op_name);

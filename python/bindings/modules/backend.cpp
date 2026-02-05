@@ -23,7 +23,8 @@
 #include <vector>
 
 #include "../module.h"
-#include "pypto/backend/backend_910b.h"
+#include "pypto/backend/backend_910b_cce.h"
+#include "pypto/backend/backend_910b_pto.h"
 #include "pypto/backend/soc.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/pipe.h"
@@ -34,7 +35,8 @@ namespace pypto {
 namespace python {
 
 using pypto::backend::Backend;
-using pypto::backend::Backend910B;
+using pypto::backend::Backend910B_CCE;
+using pypto::backend::Backend910B_PTO;
 using pypto::backend::Cluster;
 using pypto::backend::Core;
 using pypto::backend::Die;
@@ -111,6 +113,7 @@ void BindBackend(nb::module_& m) {
 
   // ========== Backend abstract base class ==========
   nb::class_<Backend>(backend_mod, "Backend", "Abstract backend base class")
+      .def("get_type_name", &Backend::GetTypeName, "Get backend type name")
       .def("export_to_file", &Backend::ExportToFile, nb::arg("path"), "Export backend to msgpack file")
       .def_static(
           "import_from_file",
@@ -126,9 +129,13 @@ void BindBackend(nb::module_& m) {
       .def_prop_ro(
           "soc", [](const Backend& backend) -> const SoC& { return *backend.GetSoC(); }, "Get SoC object");
 
-  // ========== Backend910B concrete implementation ==========
-  nb::class_<Backend910B, Backend>(backend_mod, "Backend910B", "910B backend implementation")
-      .def(nb::init<>(), "Create 910B backend with standard configuration");
+  // ========== Backend910B_CCE concrete implementation ==========
+  nb::class_<Backend910B_CCE, Backend>(backend_mod, "Backend910B_CCE", "910B CCE backend implementation")
+      .def(nb::init<>(), "Create 910B CCE backend with standard configuration");
+
+  // ========== Backend910B_PTO concrete implementation ==========
+  nb::class_<Backend910B_PTO, Backend>(backend_mod, "Backend910B_PTO", "910B PTO backend implementation")
+      .def(nb::init<>(), "Create 910B PTO backend with standard configuration");
 }
 
 }  // namespace python

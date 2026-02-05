@@ -12,7 +12,8 @@
 from pypto.pypto_core.backend import (
     # Backend
     Backend,
-    Backend910B,
+    Backend910B_CCE,
+    Backend910B_PTO,
     Cluster,
     Core,
     Die,
@@ -28,5 +29,6 @@ __all__ = [
     "Die",
     "SoC",
     "Backend",
-    "Backend910B",
+    "Backend910B_CCE",
+    "Backend910B_PTO",
 ]

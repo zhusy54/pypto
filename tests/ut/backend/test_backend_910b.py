@@ -7,29 +7,39 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-"""Tests for Backend910B implementation."""
+"""Tests for Backend910B_CCE and Backend910B_PTO implementation."""
 
 import tempfile
 from pathlib import Path
 
 from pypto import ir
-from pypto.backend import Backend910B
+from pypto.backend import Backend910B_CCE, Backend910B_PTO
 
 
 class TestBackend910BConstruction:
     """Tests for 910B backend construction and basic properties."""
 
-    def test_backend_910b_construction(self):
-        """Test Backend910B constructs successfully with standard configuration."""
-        backend = Backend910B()
+    def test_backend_910b_cce_construction(self):
+        """Test Backend910B_CCE constructs successfully with standard configuration."""
+        backend = Backend910B_CCE()
 
-        # Backend910B should construct successfully
+        # Backend910B_CCE should construct successfully
         assert backend is not None
         assert backend.soc is not None
+        assert backend.get_type_name() == "910B_CCE"
+
+    def test_backend_910b_pto_construction(self):
+        """Test Backend910B_PTO constructs successfully with standard configuration."""
+        backend = Backend910B_PTO()
+
+        # Backend910B_PTO should construct successfully
+        assert backend is not None
+        assert backend.soc is not None
+        assert backend.get_type_name() == "910B_PTO"
 
     def test_soc_structure(self):
         """Test SoC structure matches 910B specification."""
-        backend = Backend910B()
+        backend = Backend910B_CCE()
         soc = backend.soc
 
         # 910B has 1 die with 24 AIC cores + 48 AIV cores = 72 total cores
@@ -42,7 +52,7 @@ class TestBackend910BMemoryPath:
 
     def test_find_mem_paths(self):
         """Test finding memory paths between different memory spaces."""
-        backend = Backend910B()
+        backend = Backend910B_CCE()
 
         # Test cases: (from, to, expected_path)
         test_cases = [
@@ -77,7 +87,7 @@ class TestBackend910BMemorySize:
 
     def test_get_mem_sizes(self):
         """Test getting memory sizes for different memory types."""
-        backend = Backend910B()
+        backend = Backend910B_CCE()
 
         # Test cases: (memory_type, expected_size_in_KB)
         test_cases = [
@@ -103,7 +113,7 @@ class TestBackend910BMemoryHierarchy:
 
     def test_memory_hierarchy_connections(self):
         """Test memory hierarchy connections are correctly configured."""
-        backend = Backend910B()
+        backend = Backend910B_CCE()
 
         # Test cases: (from, to, expected_path_length)
         test_cases = [
@@ -130,8 +140,8 @@ class TestBackend910BSerialization:
     """Tests for 910B backend serialization and deserialization."""
 
     def test_export_import_backend(self):
-        """Test exporting and importing Backend910B."""
-        backend = Backend910B()
+        """Test exporting and importing Backend910B_CCE."""
+        backend = Backend910B_CCE()
 
         with tempfile.NamedTemporaryFile(suffix=".msgpack", delete=False) as f:
             temp_path = f.name
@@ -141,7 +151,7 @@ class TestBackend910BSerialization:
             backend.export_to_file(temp_path)
 
             # Import backend
-            restored = Backend910B.import_from_file(temp_path)
+            restored = Backend910B_CCE.import_from_file(temp_path)
 
             # Verify structure is preserved
             assert restored.soc.total_die_count() == 1
@@ -155,14 +165,14 @@ class TestBackend910BSerialization:
 
     def test_export_import_memory_hierarchy(self):
         """Test that memory hierarchy is preserved after serialization."""
-        backend = Backend910B()
+        backend = Backend910B_CCE()
 
         with tempfile.NamedTemporaryFile(suffix=".msgpack", delete=False) as f:
             temp_path = f.name
 
         try:
             backend.export_to_file(temp_path)
-            restored = Backend910B.import_from_file(temp_path)
+            restored = Backend910B_CCE.import_from_file(temp_path)
 
             # Verify memory paths work after deserialization
             path = restored.find_mem_path(ir.MemorySpace.DDR, ir.MemorySpace.L0A)

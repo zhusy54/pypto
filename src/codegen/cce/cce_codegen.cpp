@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/codegen/orchestration/orchestration_codegen.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -43,7 +44,11 @@ using namespace pto;
 #endif
 )";
 
-CCECodegen::CCECodegen() = default;
+CCECodegen::CCECodegen(const backend::Backend* backend) : backend_(backend) {
+  CHECK(backend != nullptr) << "Backend cannot be null";
+}
+
+CCECodegen::CCECodegen() : backend_(nullptr) {}
 
 std::map<std::string, std::string> CCECodegen::Generate(const ir::ProgramPtr& program) {
   CHECK(program != nullptr) << "Cannot generate code for null program";
@@ -562,6 +567,17 @@ void CCECodegen::RegisterOutputPointer(const std::string& output_var_name,
 void CCECodegen::VisitExpr_(const ir::CallPtr& op) {
   INTERNAL_CHECK(op != nullptr) << "Internal error: null Call";
 
+  // Query backend for op codegen info
+  if (backend_ != nullptr) {
+    const auto* op_info = backend_->GetOpInfo(op->op_->name_);
+    if (op_info != nullptr) {
+      std::string result = op_info->codegen_func(op, *this);
+      current_expr_value_ = result;
+      return;
+    }
+  }
+
+  // Fallback to OpRegistry for backward compatibility (will be removed)
   const auto& op_entry = ir::OpRegistry::GetInstance().GetEntry(op->op_->name_);
   if (op_entry.HasCCECodegen()) {
     const auto& codegen_func = op_entry.GetCodegenCCE();
