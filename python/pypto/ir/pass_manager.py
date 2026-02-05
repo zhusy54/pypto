@@ -13,6 +13,7 @@ import os
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Tuple
 
+from pypto.backend import BackendType
 from pypto.pypto_core import ir as core_ir
 from pypto.pypto_core import passes
 
@@ -59,7 +60,8 @@ class PassManager:
                 ("RunVerifier", lambda: passes.run_verifier()),
                 ("InitMemRef", lambda: passes.init_mem_ref()),
                 ("MemoryReuse", lambda: passes.basic_memory_reuse()),
-                ("InsertSync", lambda: passes.insert_sync()),
+                # InsertSync is bound to CCE backend (pipe lookup)
+                ("InsertSync", lambda: passes.insert_sync(BackendType.CCE)),
                 ("AddAlloc", lambda: passes.add_alloc()),
             ],
             OptimizationStrategy.PTOAS: [
@@ -70,7 +72,10 @@ class PassManager:
         }
 
     @classmethod
-    def get_strategy(cls, strategy: OptimizationStrategy = OptimizationStrategy.Default) -> "PassManager":
+    def get_strategy(
+        cls,
+        strategy: OptimizationStrategy = OptimizationStrategy.Default,
+    ) -> "PassManager":
         """Get a PassManager configured for the specified strategy.
 
         Args:
@@ -78,12 +83,6 @@ class PassManager:
 
         Returns:
             A PassManager instance configured with the appropriate passes
-
-        Example:
-            pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-            result = pm.run_passes(program)
-
-            pm_default = PassManager.get_strategy()  # Uses default strategy
         """
         if not cls._strategy_passes:
             cls._register_passes()
@@ -99,7 +98,6 @@ class PassManager:
         self.passes = []
         self.pass_names = []
 
-        # Instantiate all passes for this strategy
         for pass_name, pass_factory in self._strategy_passes[strategy]:
             self.passes.append(pass_factory())
             self.pass_names.append(pass_name)

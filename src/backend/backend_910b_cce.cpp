@@ -34,7 +34,7 @@ Backend910B_CCE& Backend910B_CCE::Instance() {
 }
 
 std::map<std::string, std::string> Backend910B_CCE::GenerateCode(const ir::ProgramPtr& program) {
-  codegen::CCECodegen codegen(this);
+  codegen::CCECodegen codegen;
   return codegen.Generate(program);
 }
 

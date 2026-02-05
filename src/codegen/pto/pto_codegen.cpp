@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "pypto/backend/backend.h"
-#include "pypto/backend/backend_910b_pto.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -127,11 +126,11 @@ class MemRefCollectorVisitor : public ir::IRVisitor {
 // Constructors
 // ========================================================================
 
+PTOCodegen::PTOCodegen() : backend_(backend::GetBackendInstance(backend::BackendType::PTO)) {}
+
 PTOCodegen::PTOCodegen(const backend::Backend* backend) : backend_(backend) {
   CHECK(backend != nullptr) << "Backend cannot be null";
 }
-
-PTOCodegen::PTOCodegen() : backend_(&backend::Backend910B_PTO::Instance()) {}
 
 // ========================================================================
 // Generate entry and GenerateFunction
@@ -152,9 +151,7 @@ std::string PTOCodegen::Generate(const ProgramPtr& program) {
       throw pypto::ValueError(
           "PTO backend does not support Orchestration functions. "
           "Function '" +
-          func->name_ +
-          "' is marked as Orchestration. "
-          "Use CCE backend (codegen=ir.CodegenBackend.CCE) for programs with orchestration functions.");
+          func->name_ + "' is marked as Orchestration. ");
     }
     GenerateFunction(func);
   }

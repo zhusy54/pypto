@@ -15,6 +15,7 @@
 #include <map>
 #include <string>
 
+#include "pypto/backend/backend.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/pipe.h"
 #include "pypto/ir/program.h"
@@ -41,18 +42,21 @@ struct OrchestrationResult {
  *
  * @param program The IR Program (used to resolve callee functions and validate references)
  * @param func The orchestration function to generate code for
+ * @param backend_type Backend type (CCE/PTO); instance is obtained internally for pipe/core-type lookup
  * @return OrchestrationResult containing generated code and function metadata
  * @throws ValueError if referenced functions are missing from the program
  */
-OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func);
+OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func,
+                                          backend::BackendType backend_type);
 
 /**
- * @brief Infer the core type of a function
+ * @brief Infer the core type of a function from the backend's pipe types for its operations
  *
  * @param func The function to infer the core type for
+ * @param backend_type Backend type (CCE/PTO); instance is obtained via GetBackendInstance(backend_type)
  * @return The core type of the function
  */
-ir::CoreType InferFunctionCoreType(const ir::FunctionPtr& func);
+ir::CoreType InferFunctionCoreType(const ir::FunctionPtr& func, backend::BackendType backend_type);
 
 }  // namespace codegen
 }  // namespace pypto

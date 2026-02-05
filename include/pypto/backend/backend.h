@@ -41,11 +41,30 @@ using CallPtr = std::shared_ptr<const Call>;
 
 namespace backend {
 
+// Forward declaration (required for GetBackendInstance return type)
+class Backend;
+
+/**
+ * @brief Backend type identifier for selecting backend instance
+ *
+ * Used by InsertSyncPass, InferFunctionCoreType, GenerateOrchestration and compile
+ * to obtain the corresponding backend instance via GetBackendInstance().
+ */
+enum class BackendType {
+  CCE,  ///< 910B CCE backend (C++ codegen)
+  PTO   ///< 910B PTO backend (PTO assembly codegen)
+};
+
+/**
+ * @brief Get the singleton backend instance for the given type
+ *
+ * @param type Backend type (CCE or PTO)
+ * @return Pointer to the backend instance (never null)
+ */
+const Backend* GetBackendInstance(BackendType type);
+
 // Backend op code generation function type
 using BackendCodegenFunc = std::function<std::string(const ir::CallPtr& op, codegen::CodegenBase& codegen)>;
-
-// Forward declaration
-class Backend;
 
 /**
  * @brief Backend op registration entry for fluent interface

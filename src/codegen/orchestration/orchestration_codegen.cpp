@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/ir/expr.h"
@@ -361,20 +362,30 @@ int GetOrCreateFuncId(const std::string& func_name, std::map<std::string, int>* 
 
 }  // namespace
 
-CoreType InferFunctionCoreType(const FunctionPtr& func) {
+CoreType InferFunctionCoreType(const FunctionPtr& func, backend::BackendType backend_type) {
+  const backend::Backend* backend = backend::GetBackendInstance(backend_type);
   class CoreTypeCollector : public IRVisitor {
    public:
+    explicit CoreTypeCollector(const backend::Backend* backend) : backend_(backend) {}
     std::set<PipeType> pipe_types_;
 
     void VisitExpr_(const CallPtr& call) override {
-      if (auto pipe_type = call->op_->GetPipe()) {
-        pipe_types_.insert(*pipe_type);
+      if (call->op_->GetPipe().has_value()) {
+        pipe_types_.insert(*call->op_->GetPipe());
+      } else if (backend_ != nullptr) {
+        const auto* info = backend_->GetOpInfo(call->op_->name_);
+        if (info) {
+          pipe_types_.insert(info->pipe);
+        }
       }
       IRVisitor::VisitExpr_(call);
     }
+
+   private:
+    const backend::Backend* backend_;
   };
 
-  CoreTypeCollector collector;
+  CoreTypeCollector collector(backend);
   collector.VisitStmt(func->body_);
 
   bool has_m = collector.pipe_types_.count(PipeType::M) > 0;
@@ -393,7 +404,8 @@ CoreType InferFunctionCoreType(const FunctionPtr& func) {
   return CoreType::VECTOR;
 }
 
-OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func) {
+OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func,
+                                          backend::BackendType backend_type) {
   using namespace pypto::ir;  // NOLINT(build/namespaces)
 
   CHECK(program != nullptr) << "Cannot generate orchestration for null program";
@@ -501,7 +513,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
     INTERNAL_CHECK(callee_func != nullptr)
         << "Internal error: function '" << callee_name
         << "' not found after validation. This should have been caught earlier.";
-    CoreType core_type = InferFunctionCoreType(callee_func);
+    CoreType core_type = InferFunctionCoreType(callee_func, backend_type);
     func_name_to_core_type[callee_name] = core_type;
 
     int func_id = GetOrCreateFuncId(callee_name, &func_name_to_id, &next_func_id);

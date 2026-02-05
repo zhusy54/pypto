@@ -37,6 +37,7 @@ namespace python {
 using pypto::backend::Backend;
 using pypto::backend::Backend910B_CCE;
 using pypto::backend::Backend910B_PTO;
+using pypto::backend::BackendType;
 using pypto::backend::Cluster;
 using pypto::backend::Core;
 using pypto::backend::Die;
@@ -47,6 +48,12 @@ using pypto::ir::MemorySpace;
 
 void BindBackend(nb::module_& m) {
   nb::module_ backend_mod = m.def_submodule("backend", "PyPTO Backend module");
+
+  // ========== BackendType enum ==========
+  nb::enum_<BackendType>(backend_mod, "BackendType",
+                         "Backend type for passes and codegen (use Instance internally)")
+      .value("CCE", BackendType::CCE, "910B CCE backend (C++ codegen)")
+      .value("PTO", BackendType::PTO, "910B PTO backend (PTO assembly codegen)");
 
   // ========== Mem class ==========
   nb::class_<Mem>(backend_mod, "Mem", "Memory component")

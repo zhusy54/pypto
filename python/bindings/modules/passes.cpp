@@ -49,10 +49,12 @@ void BindPass(nb::module_& m) {
              "Uses dependency analysis to identify memory reuse opportunities.\n"
              "Variables with non-overlapping lifetimes in the same memory space can share MemRef objects.");
 
-  passes.def("insert_sync", &pass::InsertSync,
+  passes.def("insert_sync", &pass::InsertSync, nb::arg("backend_type"),
              "Create an insert sync pass\n\n"
              "Analyzes data dependencies and inserts synchronization operations\n"
-             "(sync_src, sync_dst, bar_v, bar_m) for correct execution across hardware pipes.");
+             "(sync_src, sync_dst, bar_v, bar_m) for correct execution across hardware pipes.\n\n"
+             "Args:\n"
+             "    backend_type: Backend type (BackendType.CCE or BackendType.PTO) for pipe lookup.");
 
   passes.def("add_alloc", &pass::AddAlloc,
              "Create an add alloc pass\n\n"

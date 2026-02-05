@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/ir/function.h"
 #include "pypto/ir/program.h"
 
@@ -168,8 +169,11 @@ Pass BasicMemoryReuse();
  *
  * Analyzes data dependencies and inserts synchronization operations
  * (sync_src, sync_dst, bar_v, bar_m) for correct execution across hardware pipes.
+ * Uses the given backend type to obtain pipe info via GetBackendInstance(backend_type).
+ *
+ * @param backend_type Backend type (CCE or PTO)
  */
-Pass InsertSync();
+Pass InsertSync(backend::BackendType backend_type);
 
 /**
  * @brief Create an add alloc pass

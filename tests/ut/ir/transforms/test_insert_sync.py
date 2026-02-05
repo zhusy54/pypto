@@ -10,6 +10,7 @@
 """Tests for InsertSyncPass."""
 
 from pypto import ir
+from pypto.backend import BackendType
 from pypto.ir.op import block
 from pypto.pypto_core import DataType, passes
 
@@ -112,7 +113,7 @@ def test_insert_sync_cross_pipe():
     program_with_memref = init_memref(program)
 
     # 2. InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program_with_memref)
 
     # Extract the function from the program
@@ -181,7 +182,7 @@ def test_insert_sync_intra_pipe():
     program_with_memref = init_memref(program)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program_with_memref)
 
     # Extract the function from the program
@@ -287,7 +288,7 @@ def test_insert_sync_ifstmt():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass directly without InitMemRefPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -400,7 +401,7 @@ def test_insert_sync_cross_ifstmt_dependency():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -559,7 +560,7 @@ def test_insert_sync_nested_ifstmt():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass directly without InitMemRefPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -647,7 +648,7 @@ def test_insert_sync_forstmt():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -747,7 +748,7 @@ def test_insert_sync_forstmt_cross_boundary():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -865,7 +866,7 @@ def test_insert_sync_forstmt_with_ifstmt():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program
@@ -936,7 +937,7 @@ def test_insert_sync_forstmt_cross_iteration():
     program = ir.Program([func], "test_program", span)
 
     # Run InsertSyncPass
-    insert_sync = passes.insert_sync()
+    insert_sync = passes.insert_sync(BackendType.CCE)
     synced_program = insert_sync(program)
 
     # Extract the function from the program

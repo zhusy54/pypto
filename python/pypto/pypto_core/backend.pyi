@@ -13,6 +13,12 @@ from typing import Dict, List
 
 from pypto import ir
 
+class BackendType:
+    """Backend type for passes and codegen (CCE or PTO)."""
+
+    CCE: "BackendType"
+    PTO: "BackendType"
+
 class Mem:
     """Memory component."""
 

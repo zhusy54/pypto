@@ -10,6 +10,7 @@
 
 from enum import Enum
 
+from pypto.pypto_core.backend import BackendType
 from pypto.pypto_core.ir import Program, Span
 
 class Pass:
@@ -63,11 +64,14 @@ def basic_memory_reuse() -> Pass:
         Pass object that performs basic memory reuse optimization
     """
 
-def insert_sync() -> Pass:
+def insert_sync(backend_type: BackendType) -> Pass:
     """Create an insert sync pass.
 
     Analyzes data dependencies and inserts synchronization operations
     (sync_src, sync_dst, bar_v, bar_m) for correct execution across hardware pipes.
+
+    Args:
+        backend_type: Backend type (BackendType.CCE or BackendType.PTO) for pipe lookup.
 
     Returns:
         Pass object that inserts synchronization operations

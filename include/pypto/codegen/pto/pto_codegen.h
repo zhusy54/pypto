@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/codegen/codegen_base.h"
 #include "pypto/core/dtype.h"
 #include "pypto/ir/expr.h"
@@ -27,11 +28,6 @@
 #include "pypto/ir/type.h"
 
 namespace pypto {
-
-// Forward declaration
-namespace backend {
-class Backend;
-}  // namespace backend
 
 namespace codegen {
 
@@ -44,14 +40,13 @@ namespace codegen {
  */
 class PTOCodegen : public CodegenBase {
  public:
+  /** @brief Default constructor (backend is always PTO) */
+  PTOCodegen();
+
   /**
-   * @brief Construct PTO codegen with backend
-   *
-   * @param backend Backend instance for querying operator information
+   * @brief Construct PTO codegen with backend pointer (for internal use)
    */
   explicit PTOCodegen(const backend::Backend* backend);
-
-  PTOCodegen();
 
   ~PTOCodegen() override = default;
 

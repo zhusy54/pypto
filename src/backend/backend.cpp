@@ -22,6 +22,9 @@
 #include <utility>
 #include <vector>
 
+#include "pypto/backend/backend_910b_cce.h"
+#include "pypto/backend/backend_910b_pto.h"
+
 // clang-format off
 #include <msgpack.hpp>
 // clang-format on
@@ -30,6 +33,18 @@
 
 namespace pypto {
 namespace backend {
+
+const Backend* GetBackendInstance(BackendType type) {
+  switch (type) {
+    case BackendType::CCE:
+      return &Backend910B_CCE::Instance();
+    case BackendType::PTO:
+      return &Backend910B_PTO::Instance();
+    default:
+      CHECK(false) << "GetBackendInstance: unexpected BackendType (must be CCE or PTO)";
+      return nullptr;  // unreachable
+  }
+}
 
 // Forward declaration of registry
 class BackendRegistry;

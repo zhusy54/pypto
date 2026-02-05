@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "pypto/backend/backend.h"
 #include "pypto/codegen/cce/code_context.h"
 #include "pypto/codegen/cce/code_emitter.h"
 #include "pypto/codegen/cce/type_converter.h"
@@ -26,11 +27,6 @@
 #include "pypto/ir/type.h"
 
 namespace pypto {
-
-// Forward declaration
-namespace backend {
-class Backend;
-}  // namespace backend
 
 namespace codegen {
 
@@ -45,13 +41,7 @@ namespace codegen {
  */
 class CCECodegen : public CodegenBase {
  public:
-  /**
-   * @brief Construct CCE codegen with backend
-   *
-   * @param backend Backend instance for querying operator information
-   */
-  explicit CCECodegen(const backend::Backend* backend);
-
+  /** @brief Default constructor (backend is always CCE) */
   CCECodegen();
 
   /**
@@ -256,7 +246,7 @@ class CCECodegen : public CodegenBase {
   CodeEmitter emitter_;              ///< Code emitter for structured output
   CodeContext context_;              ///< Context for variable tracking
   TypeConverter type_converter_;     ///< Type converter
-  const backend::Backend* backend_;  ///< Backend instance for querying op info
+  const backend::Backend* backend_;  ///< CCE backend instance (for op info, core type, orchestration)
 };
 
 }  // namespace codegen
