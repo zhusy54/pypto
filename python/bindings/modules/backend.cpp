@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
@@ -23,10 +23,10 @@
 #include <vector>
 
 #include "../module.h"
-#include "pypto/backend/backend_910b_cce.h"
-#include "pypto/backend/backend_910b_pto.h"
-#include "pypto/backend/backend_config.h"
-#include "pypto/backend/soc.h"
+#include "pypto/backend/910B_CCE/backend_910b_cce.h"
+#include "pypto/backend/910B_PTO/backend_910b_pto.h"
+#include "pypto/backend/common/backend_config.h"
+#include "pypto/backend/common/soc.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/pipe.h"
 

@@ -9,16 +9,16 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_BACKEND_BACKEND_REGISTRY_H_
-#define PYPTO_BACKEND_BACKEND_REGISTRY_H_
+#ifndef PYPTO_BACKEND_COMMON_BACKEND_REGISTRY_H_
+#define PYPTO_BACKEND_COMMON_BACKEND_REGISTRY_H_
 
 #include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-#include "pypto/backend/backend.h"
-#include "pypto/backend/soc.h"
+#include "pypto/backend/common/backend.h"
+#include "pypto/backend/common/soc.h"
 
 namespace pypto {
 namespace backend {
@@ -89,4 +89,4 @@ std::unique_ptr<Backend> CreateBackendFromRegistry(const std::string& type_name,
 }  // namespace backend
 }  // namespace pypto
 
-#endif  // PYPTO_BACKEND_BACKEND_REGISTRY_H_
+#endif  // PYPTO_BACKEND_COMMON_BACKEND_REGISTRY_H_

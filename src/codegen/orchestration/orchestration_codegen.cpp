@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/backend_config.h"
+#include "pypto/backend/common/backend_config.h"
 #include "pypto/core/dtype.h"
 #include "pypto/core/error.h"
 #include "pypto/ir/expr.h"

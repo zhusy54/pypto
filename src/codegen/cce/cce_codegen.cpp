@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "pypto/backend/backend_config.h"
+#include "pypto/backend/common/backend_config.h"
 #include "pypto/codegen/orchestration/orchestration_codegen.h"
 #include "pypto/core/error.h"
 #include "pypto/core/logging.h"
@@ -46,8 +46,8 @@ using namespace pto;
 CCECodegen::CCECodegen() : backend_(backend::GetBackend()) {
   auto type = backend::GetBackendType();
   CHECK(type == backend::BackendType::CCE)
-      << "CCECodegen requires CCE backend, but "
-      << (type == backend::BackendType::PTO ? "PTO" : "unknown") << " is configured";
+      << "CCECodegen requires CCE backend, but " << (type == backend::BackendType::PTO ? "PTO" : "unknown")
+      << " is configured";
 }
 
 std::map<std::string, std::string> CCECodegen::Generate(const ir::ProgramPtr& program) {

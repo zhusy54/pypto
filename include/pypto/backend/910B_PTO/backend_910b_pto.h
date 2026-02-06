@@ -9,12 +9,12 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_BACKEND_BACKEND_910B_PTO_H_
-#define PYPTO_BACKEND_BACKEND_910B_PTO_H_
+#ifndef PYPTO_BACKEND_910B_PTO_BACKEND_910B_PTO_H_
+#define PYPTO_BACKEND_910B_PTO_BACKEND_910B_PTO_H_
 
 #include <string>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 #include "pypto/ir/program.h"
 
 namespace pypto {
@@ -68,4 +68,4 @@ class Backend910B_PTO : public Backend {
 }  // namespace backend
 }  // namespace pypto
 
-#endif  // PYPTO_BACKEND_BACKEND_910B_PTO_H_
+#endif  // PYPTO_BACKEND_910B_PTO_BACKEND_910B_PTO_H_

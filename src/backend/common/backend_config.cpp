@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend_config.h"
+#include "pypto/backend/common/backend_config.h"
 
 #include "pypto/core/logging.h"
 

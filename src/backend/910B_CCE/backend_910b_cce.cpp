@@ -9,12 +9,12 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend_910b_cce.h"
+#include "pypto/backend/910B_CCE/backend_910b_cce.h"
 
 #include <map>
 #include <string>
 
-#include "pypto/backend/soc.h"
+#include "pypto/backend/common/soc.h"
 #include "pypto/codegen/cce/cce_codegen.h"
 
 namespace pypto {

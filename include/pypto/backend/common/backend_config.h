@@ -9,13 +9,13 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_BACKEND_BACKEND_CONFIG_H_
-#define PYPTO_BACKEND_BACKEND_CONFIG_H_
+#ifndef PYPTO_BACKEND_COMMON_BACKEND_CONFIG_H_
+#define PYPTO_BACKEND_COMMON_BACKEND_CONFIG_H_
 
 #include <mutex>
 #include <optional>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 
 namespace pypto {
 namespace backend {
@@ -103,4 +103,4 @@ inline BackendType GetBackendType() { return BackendConfig::GetBackendType(); }
 }  // namespace backend
 }  // namespace pypto
 
-#endif  // PYPTO_BACKEND_BACKEND_CONFIG_H_
+#endif  // PYPTO_BACKEND_COMMON_BACKEND_CONFIG_H_

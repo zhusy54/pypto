@@ -16,7 +16,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 #include "pypto/codegen/cce/cce_codegen.h"
 #include "pypto/codegen/cce/type_converter.h"
 #include "pypto/codegen/pto/pto_codegen.h"

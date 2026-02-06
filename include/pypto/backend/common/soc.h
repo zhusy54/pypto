@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_BACKEND_SOC_H_
-#define PYPTO_BACKEND_SOC_H_
+#ifndef PYPTO_BACKEND_COMMON_SOC_H_
+#define PYPTO_BACKEND_COMMON_SOC_H_
 
 #include <cstdint>
 #include <map>
@@ -249,4 +249,4 @@ const SoC& Create910BSoC();
 }  // namespace backend
 }  // namespace pypto
 
-#endif  // PYPTO_BACKEND_SOC_H_
+#endif  // PYPTO_BACKEND_COMMON_SOC_H_

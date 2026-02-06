@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/soc.h"
+#include "pypto/backend/common/soc.h"
 
 #include <map>
 #include <memory>

@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "pypto/backend/backend_910b_cce.h"
+#include "pypto/backend/910B_CCE/backend_910b_cce.h"
 #include "pypto/codegen/cce/cce_codegen.h"
 #include "pypto/codegen/codegen_base.h"
 #include "pypto/core/logging.h"

@@ -9,8 +9,8 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#ifndef PYPTO_BACKEND_BACKEND_H_
-#define PYPTO_BACKEND_BACKEND_H_
+#ifndef PYPTO_BACKEND_COMMON_BACKEND_H_
+#define PYPTO_BACKEND_COMMON_BACKEND_H_
 
 #include <cstdint>
 #include <functional>
@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/soc.h"
+#include "pypto/backend/common/soc.h"
 #include "pypto/core/common.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/pipe.h"
@@ -255,4 +255,4 @@ class Backend {
 }  // namespace backend
 }  // namespace pypto
 
-#endif  // PYPTO_BACKEND_BACKEND_H_
+#endif  // PYPTO_BACKEND_COMMON_BACKEND_H_

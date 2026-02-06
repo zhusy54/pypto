@@ -9,7 +9,7 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 
 #include <algorithm>
 #include <fstream>
@@ -22,8 +22,8 @@
 #include <utility>
 #include <vector>
 
-#include "pypto/backend/backend_910b_cce.h"
-#include "pypto/backend/backend_910b_pto.h"
+#include "pypto/backend/910B_CCE/backend_910b_cce.h"
+#include "pypto/backend/910B_PTO/backend_910b_pto.h"
 
 // clang-format off
 #include <msgpack.hpp>

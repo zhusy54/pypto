@@ -9,11 +9,11 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
-#include "pypto/backend/backend_910b_pto.h"
+#include "pypto/backend/910B_PTO/backend_910b_pto.h"
 
 #include <string>
 
-#include "pypto/backend/soc.h"
+#include "pypto/backend/common/soc.h"
 #include "pypto/codegen/pto/pto_codegen.h"
 
 namespace pypto {

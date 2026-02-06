@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "pypto/backend/backend.h"
+#include "pypto/backend/common/backend.h"
 #include "pypto/codegen/codegen_base.h"
 #include "pypto/core/dtype.h"
 #include "pypto/ir/expr.h"
