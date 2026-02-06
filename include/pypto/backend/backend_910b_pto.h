@@ -31,12 +31,14 @@ namespace backend {
 class Backend910B_PTO : public Backend {
  public:
   /**
-   * @brief Construct 910B PTO backend
+   * @brief Get registration instance for static operator registration
    *
-   * Uses shared 910B SoC configuration.
-   * Operators are registered via static initialization.
+   * Returns a singleton instance used during static initialization
+   * to register operators via REGISTER_BACKEND_OP macro.
+   *
+   * @return Reference to registration instance
    */
-  Backend910B_PTO();
+  static Backend910B_PTO& Instance();
 
   /**
    * @brief Get backend type name
@@ -53,17 +55,14 @@ class Backend910B_PTO : public Backend {
    */
   std::string GenerateCode(const ir::ProgramPtr& program);
 
-  /**
-   * @brief Get registration instance for static operator registration
-   *
-   * Returns a singleton instance used during static initialization
-   * to register operators via REGISTER_BACKEND_OP macro.
-   *
-   * @return Reference to registration instance
-   */
-  static Backend910B_PTO& Instance();
-
  private:
+  /**
+   * @brief Private constructor (singleton pattern)
+   *
+   * Constructor is private to enforce singleton pattern.
+   * Use Instance() to get the singleton instance.
+   */
+  Backend910B_PTO();
 };
 
 }  // namespace backend

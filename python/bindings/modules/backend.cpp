@@ -10,7 +10,6 @@
  */
 
 #include "pypto/backend/backend.h"
-#include "pypto/backend/backend_config.h"
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
@@ -26,6 +25,7 @@
 #include "../module.h"
 #include "pypto/backend/backend_910b_cce.h"
 #include "pypto/backend/backend_910b_pto.h"
+#include "pypto/backend/backend_config.h"
 #include "pypto/backend/soc.h"
 #include "pypto/ir/memref.h"
 #include "pypto/ir/pipe.h"
@@ -139,17 +139,18 @@ void BindBackend(nb::module_& m) {
 
   // ========== Backend910B_CCE concrete implementation ==========
   nb::class_<Backend910B_CCE, Backend>(backend_mod, "Backend910B_CCE", "910B CCE backend implementation")
-      .def(nb::init<>(), "Create 910B CCE backend with standard configuration");
+      .def_static("instance", &Backend910B_CCE::Instance, nb::rv_policy::reference,
+                  "Get singleton instance of 910B CCE backend");
 
   // ========== Backend910B_PTO concrete implementation ==========
   nb::class_<Backend910B_PTO, Backend>(backend_mod, "Backend910B_PTO", "910B PTO backend implementation")
-      .def(nb::init<>(), "Create 910B PTO backend with standard configuration");
+      .def_static("instance", &Backend910B_PTO::Instance, nb::rv_policy::reference,
+                  "Get singleton instance of 910B PTO backend");
 
   // ========== Backend configuration functions ==========
-  backend_mod.def(
-      "set_backend_type", &backend::BackendConfig::SetBackendType, nb::arg("backend_type"),
-      "Set the global backend type. Must be called before any backend operations. "
-      "Can be called multiple times with the same type (idempotent).");
+  backend_mod.def("set_backend_type", &backend::BackendConfig::SetBackendType, nb::arg("backend_type"),
+                  "Set the global backend type. Must be called before any backend operations. "
+                  "Can be called multiple times with the same type (idempotent).");
 
   backend_mod.def("get_backend_type", &backend::BackendConfig::GetBackendType,
                   "Get the configured backend type. Throws error if not configured.");

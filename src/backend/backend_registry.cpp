@@ -35,9 +35,10 @@ void BackendRegistry::Register(const std::string& type_name, CreateFunc func) {
 
 std::unique_ptr<Backend> BackendRegistry::Create(const std::string& type_name,
                                                  std::shared_ptr<const SoC> soc) {
-  auto it = registry_.find(type_name);
-  CHECK(it != registry_.end()) << "Unknown backend type: " << type_name;
-  return it->second(soc);
+  // For singleton backends, we cannot create new instances
+  throw ValueError(
+      "Cannot create backend instances via registry - backends are singletons. "
+      "Use Backend910B_CCE::Instance() or Backend910B_PTO::Instance() instead.");
 }
 
 bool BackendRegistry::IsRegistered(const std::string& type_name) const {
@@ -46,23 +47,30 @@ bool BackendRegistry::IsRegistered(const std::string& type_name) const {
 
 std::unique_ptr<Backend> CreateBackendFromRegistry(const std::string& type_name,
                                                    std::shared_ptr<const SoC> soc) {
-  return BackendRegistry::Instance().Create(type_name, soc);
+  // For singleton backends, we cannot create new instances
+  throw ValueError(
+      "Cannot create backend instances via registry - backends are singletons. "
+      "Use Backend910B_CCE::Instance() or Backend910B_PTO::Instance() instead.");
 }
 
 // Auto-register Backend910B_CCE and Backend910B_PTO
 namespace {
 bool RegisterBackend910B_CCE() {
+  // Backend910B_CCE is a singleton, no need to register factory function
+  // Registration is kept for backward compatibility but Create() will fail
   BackendRegistry::Instance().Register("910B_CCE", [](std::shared_ptr<const SoC> /*unused*/) {
-    // Backend910B_CCE creates its own SoC, ignore parameter
-    return std::make_unique<Backend910B_CCE>();
+    throw ValueError("Cannot create Backend910B_CCE via registry - use Backend910B_CCE::Instance()");
+    return std::unique_ptr<Backend>(nullptr);  // Never reached
   });
   return true;
 }
 
 bool RegisterBackend910B_PTO() {
+  // Backend910B_PTO is a singleton, no need to register factory function
+  // Registration is kept for backward compatibility but Create() will fail
   BackendRegistry::Instance().Register("910B_PTO", [](std::shared_ptr<const SoC> /*unused*/) {
-    // Backend910B_PTO creates its own SoC, ignore parameter
-    return std::make_unique<Backend910B_PTO>();
+    throw ValueError("Cannot create Backend910B_PTO via registry - use Backend910B_PTO::Instance()");
+    return std::unique_ptr<Backend>(nullptr);  // Never reached
   });
   return true;
 }

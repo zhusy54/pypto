@@ -1,8 +1,14 @@
-/*!
- * Copyright (c) 2024 by Contributors
- * \file backend_config.cpp
- * \brief Implementation of global backend configuration
+/*
+ * Copyright (c) PyPTO Contributors.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ * -----------------------------------------------------------------------------------------------------------
  */
+
 #include "pypto/backend/backend_config.h"
 
 #include "pypto/core/logging.h"
@@ -18,10 +24,9 @@ void BackendConfig::SetBackendType(BackendType type) {
 
   if (backend_type_.has_value()) {
     // Idempotent: allow setting the same type multiple times
-    CHECK(*backend_type_ == type)
-        << "Backend type already set to "
-        << (*backend_type_ == BackendType::CCE ? "CCE" : "PTO")
-        << ", cannot change to " << (type == BackendType::CCE ? "CCE" : "PTO");
+    CHECK(*backend_type_ == type) << "Backend type already set to "
+                                  << (*backend_type_ == BackendType::CCE ? "CCE" : "PTO")
+                                  << ", cannot change to " << (type == BackendType::CCE ? "CCE" : "PTO");
     return;
   }
 

@@ -76,14 +76,20 @@ class Backend:
     def soc(self) -> SoC: ...
 
 class Backend910B_CCE(Backend):
-    """910B CCE backend implementation."""
+    """910B CCE backend implementation (singleton)."""
 
-    def __init__(self) -> None: ...
+    @staticmethod
+    def instance() -> "Backend910B_CCE":
+        """Get singleton instance of 910B CCE backend."""
+        ...
 
 class Backend910B_PTO(Backend):
-    """910B PTO backend implementation."""
+    """910B PTO backend implementation (singleton)."""
 
-    def __init__(self) -> None: ...
+    @staticmethod
+    def instance() -> "Backend910B_PTO":
+        """Get singleton instance of 910B PTO backend."""
+        ...
 
 def set_backend_type(backend_type: BackendType) -> None:
     """

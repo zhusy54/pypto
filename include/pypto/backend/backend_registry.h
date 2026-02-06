@@ -49,12 +49,14 @@ class BackendRegistry {
   void Register(const std::string& type_name, CreateFunc func);
 
   /**
-   * @brief Create a backend instance
+   * @brief Create a backend instance (deprecated for singleton backends)
+   *
+   * Backends are singletons; this always throws. Use Backend910B_CCE::Instance()
+   * or Backend910B_PTO::Instance() instead.
    *
    * @param type_name Backend type name
    * @param soc SoC structure (includes memory hierarchy)
-   * @return Unique pointer to created backend
-   * @throws RuntimeError if type_name is not registered
+   * @throws ValueError always (backends are singletons, not created via registry)
    */
   std::unique_ptr<Backend> Create(const std::string& type_name, std::shared_ptr<const SoC> soc);
 
@@ -72,13 +74,14 @@ class BackendRegistry {
 };
 
 /**
- * @brief Helper function for backend deserialization
+ * @brief Create backend from registry (deprecated for singleton backends)
  *
- * Called by Backend::ImportFromFile to create backend from registry.
+ * Backends are singletons; this always throws. Use Backend910B_CCE::Instance()
+ * or Backend910B_PTO::Instance() instead.
  *
  * @param type_name Backend type name
  * @param soc SoC structure (includes memory hierarchy)
- * @return Unique pointer to created backend
+ * @throws ValueError always (backends are singletons, not created via registry)
  */
 std::unique_ptr<Backend> CreateBackendFromRegistry(const std::string& type_name,
                                                    std::shared_ptr<const SoC> soc);
