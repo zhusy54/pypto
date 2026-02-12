@@ -183,6 +183,7 @@ class IRPythonPrinter : public IRVisitor {
   void VisitStmt_(const ReturnStmtPtr& op) override;
   void VisitStmt_(const ForStmtPtr& op) override;
   void VisitStmt_(const WhileStmtPtr& op) override;
+  void VisitStmt_(const ScopeStmtPtr& op) override;
   void VisitStmt_(const SeqStmtsPtr& op) override;
   void VisitStmt_(const OpStmtsPtr& op) override;
   void VisitStmt_(const EvalStmtPtr& op) override;
@@ -756,6 +757,23 @@ void IRPythonPrinter::VisitStmt_(const WhileStmtPtr& op) {
     VisitStmtBody(op->body_, op->return_vars_);
     DecreaseIndent();
   }
+}
+
+void IRPythonPrinter::VisitStmt_(const ScopeStmtPtr& op) {
+  // Map ScopeKind to DSL function name for robustness
+  static const std::unordered_map<ScopeKind, std::string> scope_kind_to_dsl = {
+      {ScopeKind::InCore, "incore"},
+  };
+
+  auto it = scope_kind_to_dsl.find(op->scope_kind_);
+  INTERNAL_CHECK(it != scope_kind_to_dsl.end())
+      << "Internal error: Unknown ScopeKind in python_printer: " << ScopeKindToString(op->scope_kind_);
+
+  stream_ << "with " << prefix_ << "." << it->second << "():\n";
+
+  IncreaseIndent();
+  VisitStmt(op->body_);
+  DecreaseIndent();
 }
 
 void IRPythonPrinter::VisitStmt_(const SeqStmtsPtr& op) {
