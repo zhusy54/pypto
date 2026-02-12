@@ -215,6 +215,18 @@ class CCECodegen : public CodegenBase {
                                  const std::map<std::string, ir::CoreType>& func_name_to_core_type);
 
   /**
+   * @brief Generate V2 config file for PTO2 orchestration and kernels
+   *
+   * @param orch_func_name Orchestration function name
+   * @param func_name_to_id Kernel function name -> func id mapping
+   * @param func_name_to_core_type Kernel function name -> core type mapping
+   * @return Generated config file as a string
+   */
+  std::string GenerateConfigFileV2(const std::string& orch_func_name,
+                                   const std::map<std::string, int>& func_name_to_id,
+                                   const std::map<std::string, ir::CoreType>& func_name_to_core_type);
+
+  /**
    * @brief Generate Tile type declaration and instance
    *
    * Emits type alias and instance declaration for a Tile variable.

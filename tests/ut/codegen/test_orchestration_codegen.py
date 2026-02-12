@@ -586,3 +586,301 @@ class TestOrchestrationScalarArgs:
         assert "static_cast<float*>(host_t)" in code
         # Linear index for [1, 3] on shape [4, 8]: 1 * 8 + 3
         assert "1 * 8 + 3" in code
+
+
+class TestOrchestrationV2:
+    """Test V2 (PTO2) orchestration codegen format."""
+
+    def test_v2_basic_structure(self):
+        """Test V2 codegen produces PTO2 format: make_tensor_external, PTOParam, pto2_rt_submit_task."""
+        backend.reset_for_testing()
+        backend.set_backend_type(BackendType.CCE)
+
+        @pl.program
+        class V2Program:
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_add(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.add(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def orch_v2(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, b)
+                return d
+
+        generator = codegen.CCECodegen()
+        files = generator.generate(V2Program)
+        code = files["orchestration/orch_v2_v2.cpp"]
+
+        # V2 includes
+        assert "#include <stddef.h>" in code
+        assert "#include <stdint.h>" in code
+        assert "#include <stdio.h>" in code
+        assert '#include "pto_orchestration_api.h"' in code
+
+        # ARG defines for params (a, b) and return (d)
+        assert "#define ARG_PTR_A 0" in code
+        assert "#define ARG_PTR_B 1" in code
+        assert "#define ARG_PTR_D 2" in code
+        assert "#define ARG_SIZE_A" in code
+        assert "#define ARG_SIZE_B" in code
+        assert "#define ARG_SIZE_D" in code
+
+        # Helper function
+        assert "float_to_u64" in code
+
+        # Config function
+        assert "aicpu_orchestration_config" in code
+        assert "PTO2OrchestrationConfig" in code
+        assert "expected_arg_count" in code
+
+        # Entry function signature
+        assert "aicpu_orchestration_entry(PTO2Runtime* rt, uint64_t* args, int arg_count)" in code
+        assert 'extern "C"' in code
+
+        # Argument extraction
+        assert "arg_a_ptr" in code
+        assert "arg_b_ptr" in code
+        assert "arg_d_ptr" in code
+        assert "size_a" in code
+        assert "size_b" in code
+        assert "size_d" in code
+
+        # External tensors (params + return)
+        assert "Tensor ext_a = make_tensor_external(arg_a_ptr, size_a)" in code
+        assert "Tensor ext_b = make_tensor_external(arg_b_ptr, size_b)" in code
+        assert "Tensor ext_d = make_tensor_external(arg_d_ptr, size_d)" in code
+
+        # Intermediate tensor c: make_tensor with byte size
+        assert "make_tensor(" in code
+        # c is 16*16*4 = 1024 bytes
+        assert "16 * 16 * 4" in code
+
+        # PTOParam arrays and task submission
+        assert "PTOParam" in code
+        assert "make_input_param" in code
+        assert "make_output_param" in code
+        assert "pto2_rt_submit_task" in code
+        assert "PTO2_WORKER_VECTOR" in code
+
+        # V2 should NOT have V1 constructs
+        assert "add_successor" not in code
+        assert "add_task" not in code
+        assert "Runtime* runtime" not in code
+        assert "device_malloc" not in code
+        assert "copy_to_device" not in code
+
+    def test_v2_config_file(self):
+        """Test V2 config file (kernel_config_v2.py) is generated."""
+        backend.reset_for_testing()
+        backend.set_backend_type(BackendType.CCE)
+
+        @pl.program
+        class V2ConfigProgram:
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_add(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.add(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def orch_v2_cfg(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                return c
+
+        generator = codegen.CCECodegen()
+        files = generator.generate(V2ConfigProgram)
+
+        assert "kernel_config_v2.py" in files
+        config = files["kernel_config_v2.py"]
+        assert "aicpu_orchestration_entry" in config
+        assert "kernel_add" in config
+
+    def test_v2_independent_tasks(self):
+        """Test V2 codegen with independent tasks (no dependencies needed)."""
+        backend.reset_for_testing()
+        backend.set_backend_type(BackendType.CCE)
+
+        @pl.program
+        class V2IndependentProgram:
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_add(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.add(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def orch_v2_indep(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+            ) -> tuple[pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 16], pl.FP32]]:
+                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                return c, d
+
+        generator = codegen.CCECodegen()
+        files = generator.generate(V2IndependentProgram)
+        code = files["orchestration/orch_v2_indep_v2.cpp"]
+
+        # Two return tensors: c and d are both external
+        assert "ext_c" in code
+        assert "ext_d" in code
+        assert "make_tensor_external" in code
+
+        # Two tasks submitted
+        assert code.count("pto2_rt_submit_task") == 2
+
+        # No V1 dependency management
+        assert "add_successor" not in code
+
+    def test_v2_vector_example_dag(self):
+        """Test V2 codegen matching vector_example DAG structure.
+
+        Mirrors the DAG from simpler/examples/tensormap_and_ringbuffer/vector_example:
+          t0: c = kernel_add(a, b)       [func_id=0]
+          t1: d = kernel_add(c, a)       [func_id=0]
+          t2: e = kernel_add(c, b)       [func_id=0]
+          t3: g = kernel_mul(d, e)       [func_id=1]
+          t4: f = kernel_add(g, c)       [func_id=0]
+        Diamond dependency: c -> d, c -> e, d -> g, e -> g, c -> f, g -> f
+        4 intermediate tensors (c, d, e, g), 1 output (f).
+        """
+        backend.reset_for_testing()
+        backend.set_backend_type(BackendType.CCE)
+
+        @pl.program
+        class V2VectorExampleProgram:
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_add(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.add(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_mul(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.mul(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.Orchestration)
+            def orch_vector_example(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                b: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, a)
+                e: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, b)
+                g: pl.Tensor[[16, 16], pl.FP32] = self.kernel_mul(d, e)
+                f: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(g, c)
+                return f
+
+        generator = codegen.CCECodegen()
+        files = generator.generate(V2VectorExampleProgram)
+        code = files["orchestration/orch_vector_example_v2.cpp"]
+
+        # --- V2 structure matching vector_example ---
+
+        # Includes
+        assert "#include <stddef.h>" in code
+        assert "#include <stdint.h>" in code
+        assert '#include "pto_orchestration_api.h"' in code
+
+        # ARG defines: params (a, b) + return (f)
+        assert "#define ARG_PTR_A 0" in code
+        assert "#define ARG_PTR_B 1" in code
+        assert "#define ARG_PTR_F 2" in code
+        assert "#define ARG_SIZE_A 3" in code
+        assert "#define ARG_SIZE_B 4" in code
+        assert "#define ARG_SIZE_F 5" in code
+
+        # Config: expected_arg_count = (2 params + 1 return) * 2 = 6
+        assert "aicpu_orchestration_config" in code
+        assert ".expected_arg_count = 6" in code
+
+        # Entry function
+        assert "aicpu_orchestration_entry(PTO2Runtime* rt" in code
+
+        # External tensors: a, b (params) + f (return)
+        assert "Tensor ext_a = make_tensor_external(arg_a_ptr, size_a)" in code
+        assert "Tensor ext_b = make_tensor_external(arg_b_ptr, size_b)" in code
+        assert "Tensor ext_f = make_tensor_external(arg_f_ptr, size_f)" in code
+
+        # 4 intermediate tensors: c, d, e, g (all make_tensor)
+        for name in ["c", "d", "e", "g"]:
+            assert f"Tensor {name} = make_tensor(" in code, f"Missing make_tensor for {name}"
+
+        # 5 tasks submitted
+        assert code.count("pto2_rt_submit_task") == 5
+
+        # Task 0: kernel_add(a, b) -> c
+        assert "make_input_param(ext_a)" in code
+        assert "make_input_param(ext_b)" in code
+        assert "make_output_param(c)" in code
+
+        # Task 3: kernel_mul(d, e) -> g
+        assert "make_input_param(d)" in code
+        assert "make_input_param(e)" in code
+        assert "make_output_param(g)" in code
+
+        # Task 4: kernel_add(g, c) -> f (output = ext_f)
+        assert "make_input_param(g)" in code
+        assert "make_input_param(c)" in code
+        assert "make_output_param(ext_f)" in code
+
+        # Two different kernel functions with correct func_ids
+        assert '"kernel_add"' in code
+        assert '"kernel_mul"' in code
+        assert "PTO2_WORKER_VECTOR" in code
+
+        # No V1 constructs
+        assert "add_successor" not in code
+        assert "add_task" not in code
+        assert "device_malloc" not in code
+        assert "copy_to_device" not in code

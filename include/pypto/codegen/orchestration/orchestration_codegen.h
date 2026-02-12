@@ -48,6 +48,23 @@ struct OrchestrationResult {
 OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const ir::FunctionPtr& func);
 
 /**
+ * @brief Generate PTO2-format orchestration code for a function
+ *
+ * Generates C++ code using PTO2 runtime API:
+ * - aicpu_orchestration_config() returns PTO2OrchestrationConfig
+ * - aicpu_orchestration_entry(PTO2Runtime* rt, uint64_t* args, int arg_count)
+ * - make_tensor_external / make_tensor for tensor declarations
+ * - PTOParam + pto2_rt_submit_task for task submission
+ * - No manual dependency management (runtime handles automatically)
+ *
+ * @param program The IR Program (used to resolve callee functions and validate references)
+ * @param func The orchestration function to generate code for
+ * @return OrchestrationResult containing generated code and function metadata
+ * @throws ValueError if referenced functions are missing from the program
+ */
+OrchestrationResult GenerateOrchestrationV2(const ir::ProgramPtr& program, const ir::FunctionPtr& func);
+
+/**
  * @brief Infer the core type of a function from the backend's pipe types for its operations
  *
  * Uses the globally configured backend to obtain pipe information.

@@ -106,6 +106,15 @@ std::map<std::string, std::string> CCECodegen::Generate(const ir::ProgramPtr& pr
     std::string config_code =
         GenerateConfigFile(func->name_, orch_result.func_name_to_id, orch_result.func_name_to_core_type);
     files["kernel_config.py"] = config_code;
+
+    // Also generate V2 orchestration code
+    auto orch_result_v2 = GenerateOrchestrationV2(program, func);
+    files["orchestration/" + func->name_ + "_v2.cpp"] = orch_result_v2.code;
+
+    // Generate V2 config file
+    std::string config_code_v2 = GenerateConfigFileV2(func->name_, orch_result_v2.func_name_to_id,
+                                                      orch_result_v2.func_name_to_core_type);
+    files["kernel_config_v2.py"] = config_code_v2;
   }
 
   return files;
@@ -133,6 +142,28 @@ std::string CCECodegen::GenerateConfigFile(
     std::string core_type = func_name_to_core_type.at(func_name) == ir::CoreType::VECTOR ? "aiv" : "aic";
     oss << "\t{\"func_id\": " << func_id << R"(, "source": str(_ROOT_DIR / "kernels" / ")" << core_type
         << "\" / \"" << func_name << R"(.cpp"), "core_type": ")" << core_type << "\"},\n";
+  }
+  oss << "]\n";
+  return oss.str();
+}
+
+std::string CCECodegen::GenerateConfigFileV2(
+    const std::string& orch_func_name, const std::map<std::string, int>& func_name_to_id,
+    const std::map<std::string, ir::CoreType>& func_name_to_core_type) {
+  std::ostringstream oss;
+  oss << "# Kernel and Orchestration Configuration (PTO2)\n\n";
+  oss << "from pathlib import Path\n\n";
+  oss << "_ROOT_DIR = Path(__file__).parent\n\n";
+
+  oss << "ORCHESTRATION = {\n\t\"source\": str(_ROOT_DIR / \"orchestration\" / \"" << orch_func_name
+      << "_v2.cpp\"),\n"
+      << "\t\"function_name\": \"aicpu_orchestration_entry\"\n}\n\n";
+
+  oss << "KERNELS = [\n";
+  for (const auto& [name, id] : func_name_to_id) {
+    std::string core_type = func_name_to_core_type.at(name) == ir::CoreType::VECTOR ? "aiv" : "aic";
+    oss << "\t{\"func_id\": " << id << R"(, "source": str(_ROOT_DIR / "kernels" / ")" << core_type
+        << "\" / \"" << name << R"(.cpp"), "core_type": ")" << core_type << "\"},\n";
   }
   oss << "]\n";
   return oss.str();
