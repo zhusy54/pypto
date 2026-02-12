@@ -676,6 +676,9 @@ class TestOrchestrationV2:
         assert "pto2_rt_submit_task" in code
         assert "PTO2_WORKER_VECTOR" in code
 
+        # PTO2_SCOPE: task 1 depends on intermediate c, so it goes in inner scope
+        assert "PTO2_SCOPE(rt)" in code
+
         # V2 should NOT have V1 constructs
         assert "add_successor" not in code
         assert "add_task" not in code
@@ -765,17 +768,19 @@ class TestOrchestrationV2:
         # No V1 dependency management
         assert "add_successor" not in code
 
+        # No PTO2_SCOPE needed: all tasks use only external tensors
+        assert "PTO2_SCOPE" not in code
+
     def test_v2_vector_example_dag(self):
         """Test V2 codegen matching vector_example DAG structure.
 
         Mirrors the DAG from simpler/examples/tensormap_and_ringbuffer/vector_example:
-          t0: c = kernel_add(a, b)       [func_id=0]
-          t1: d = kernel_add(c, a)       [func_id=0]
-          t2: e = kernel_add(c, b)       [func_id=0]
-          t3: g = kernel_mul(d, e)       [func_id=1]
-          t4: f = kernel_add(g, c)       [func_id=0]
-        Diamond dependency: c -> d, c -> e, d -> g, e -> g, c -> f, g -> f
-        4 intermediate tensors (c, d, e, g), 1 output (f).
+          t0: c = kernel_add(a, b)           [func_id=0, outer scope]
+          t1: d = kernel_add_scalar(c, 1.0)  [func_id=1, inner scope]
+          t2: e = kernel_add_scalar(c, 2.0)  [func_id=1, inner scope]
+          t3: g = kernel_mul(d, e)           [func_id=2, inner scope]
+          t4: f = kernel_add(g, c)           [func_id=0, inner scope]
+        Formula: f = (a + b + 1)(a + b + 2) + (a + b)
         """
         backend.reset_for_testing()
         backend.set_backend_type(BackendType.CCE)
@@ -792,6 +797,18 @@ class TestOrchestrationV2:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
                 result: pl.Tile[[16, 16], pl.FP32] = pl.add(a_tile, b_tile)
+                out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
+                return out
+
+            @pl.function(type=pl.FunctionType.InCore)
+            def kernel_add_scalar(
+                self,
+                a: pl.Tensor[[16, 16], pl.FP32],
+                scalar: pl.Scalar[pl.FP32],
+                output: pl.Tensor[[16, 16], pl.FP32],
+            ) -> pl.Tensor[[16, 16], pl.FP32]:
+                x: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
+                result: pl.Tile[[16, 16], pl.FP32] = pl.add(x, scalar)
                 out: pl.Tensor[[16, 16], pl.FP32] = pl.store(result, [0, 0], [16, 16], output)
                 return out
 
@@ -815,8 +832,8 @@ class TestOrchestrationV2:
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
-                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, a)
-                e: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, b)
+                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add_scalar(c, 1.0)  # type: ignore[reportArgumentType]
+                e: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add_scalar(c, 2.0)  # type: ignore[reportArgumentType]
                 g: pl.Tensor[[16, 16], pl.FP32] = self.kernel_mul(d, e)
                 f: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(g, c)
                 return f
@@ -840,7 +857,7 @@ class TestOrchestrationV2:
         assert "#define ARG_SIZE_B 4" in code
         assert "#define ARG_SIZE_F 5" in code
 
-        # Config: expected_arg_count = (2 params + 1 return) * 2 = 6
+        # Config
         assert "aicpu_orchestration_config" in code
         assert ".expected_arg_count = 6" in code
 
@@ -859,10 +876,15 @@ class TestOrchestrationV2:
         # 5 tasks submitted
         assert code.count("pto2_rt_submit_task") == 5
 
-        # Task 0: kernel_add(a, b) -> c
+        # Task 0: kernel_add(a, b) -> c (outer scope)
         assert "make_input_param(ext_a)" in code
         assert "make_input_param(ext_b)" in code
         assert "make_output_param(c)" in code
+
+        # Scalar params: kernel_add_scalar uses float_to_u64
+        assert "make_scalar_param(float_to_u64(" in code
+        assert "1.0" in code  # 1.0 scalar value
+        assert "2.0" in code  # 2.0 scalar value
 
         # Task 3: kernel_mul(d, e) -> g
         assert "make_input_param(d)" in code
@@ -874,10 +896,14 @@ class TestOrchestrationV2:
         assert "make_input_param(c)" in code
         assert "make_output_param(ext_f)" in code
 
-        # Two different kernel functions with correct func_ids
+        # Three different kernel functions
         assert '"kernel_add"' in code
+        assert '"kernel_add_scalar"' in code
         assert '"kernel_mul"' in code
         assert "PTO2_WORKER_VECTOR" in code
+
+        # PTO2_SCOPE: inner scope wraps tasks that depend on intermediate tensors
+        assert "PTO2_SCOPE(rt)" in code
 
         # No V1 constructs
         assert "add_successor" not in code
