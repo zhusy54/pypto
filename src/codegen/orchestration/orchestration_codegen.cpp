@@ -755,6 +755,16 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
   }
   std::set<std::string> return_name_set(return_vars.begin(), return_vars.end());
 
+  // Deduplicate: return vars that are also params are inplace tensors,
+  // already handled via the params loop. Only return-only vars need
+  // separate ARG slots and external tensor declarations.
+  std::vector<std::string> unique_return_vars;
+  for (const auto& name : return_vars) {
+    if (!param_names.count(name)) {
+      unique_return_vars.push_back(name);
+    }
+  }
+
   // Identify intermediate tensors
   std::set<std::string> intermediate_tensors;
   for (const auto& var_name : info_collector.output_tensors) {
@@ -763,8 +773,8 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
     }
   }
 
-  int return_tensor_count = CountReturnTensors(func);
-  int expected_arg_count = CountExpectedArgs(func, return_tensor_count);
+  int unique_return_count = static_cast<int>(unique_return_vars.size());
+  int expected_arg_count = CountExpectedArgs(func, unique_return_count);
 
   std::ostringstream oss;
 
@@ -772,7 +782,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
   oss << GenerateIncludes();
 
   // 2. ARG defines
-  oss << GenerateArgDefines(func, return_vars);
+  oss << GenerateArgDefines(func, unique_return_vars);
 
   // 3. Helper functions
   oss << GenerateHelperFunctions();
@@ -798,7 +808,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
           << "];\n";
     }
   }
-  for (const auto& name : return_vars) {
+  for (const auto& name : unique_return_vars) {
     std::string upper_name = name;
     for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
     oss << "    void* arg_" << name << "_ptr = (void*)(uintptr_t)args[ARG_PTR_" << upper_name << "];\n";
@@ -813,7 +823,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
       oss << "    size_t size_" << param->name_ << " = (size_t)args[ARG_SIZE_" << upper_name << "];\n";
     }
   }
-  for (const auto& name : return_vars) {
+  for (const auto& name : unique_return_vars) {
     std::string upper_name = name;
     for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
     oss << "    size_t size_" << name << " = (size_t)args[ARG_SIZE_" << upper_name << "];\n";
@@ -827,7 +837,7 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
           << "_ptr, size_" << param->name_ << ");\n";
     }
   }
-  for (const auto& name : return_vars) {
+  for (const auto& name : unique_return_vars) {
     oss << "    Tensor ext_" << name << " = make_tensor_external(arg_" << name << "_ptr, size_" << name
         << ");\n";
   }
