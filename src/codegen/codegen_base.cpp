@@ -91,6 +91,9 @@ std::string CodegenBase::GenerateExprString(const ir::ExprPtr& expr) {
   if (auto neg = As<Neg>(expr)) {
     return "(-" + GenerateExprString(neg->operand_) + ")";
   }
+  if (auto cast_expr = As<Cast>(expr)) {
+    return GenerateExprString(cast_expr->operand_);
+  }
   if (auto tuple_get = As<TupleGetItemExpr>(expr)) {
     return GenerateExprString(tuple_get->tuple_) + "_" + std::to_string(tuple_get->index_);
   }

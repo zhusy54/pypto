@@ -96,18 +96,31 @@ REGISTER_ORCHESTRATION_OP(tensor_read, ("tensor.read")) {
   const auto& indices = indices_tuple->elements_;
   const auto& shape = input_type->shape_;
 
-  std::ostringstream oss;
-  oss << "size_t idx_" << result_var << " = ";
+  // Build linear index expression
+  std::ostringstream idx_oss;
   for (size_t i = 0; i < indices.size(); ++i) {
-    if (i > 0) oss << " + ";
-    oss << codegen.GenerateExprString(indices[i]);
+    if (i > 0) idx_oss << " + ";
+    idx_oss << codegen.GenerateExprString(indices[i]);
     for (size_t j = i + 1; j < shape.size(); ++j) {
-      oss << " * " << codegen.GenerateExprString(shape[j]);
+      idx_oss << " * " << codegen.GenerateExprString(shape[j]);
     }
   }
-  oss << ";\n";
-  oss << cpp_type << " " << result_var << " = static_cast<" << cpp_type << "*>(" << ptr_expr << ")[idx_"
-      << result_var << "];";
+  std::string idx_expr = idx_oss.str();
+
+  // Check if the index expression is a simple constant (all digits)
+  bool is_simple = !idx_expr.empty() && std::all_of(idx_expr.begin(), idx_expr.end(), ::isdigit);
+
+  std::ostringstream oss;
+  if (is_simple) {
+    // Inline constant index directly
+    oss << cpp_type << " " << result_var << " = static_cast<" << cpp_type << "*>(" << ptr_expr << ")["
+        << idx_expr << "];";
+  } else {
+    // Use intermediate variable for complex index expressions
+    oss << "size_t idx_" << result_var << " = " << idx_expr << ";\n";
+    oss << cpp_type << " " << result_var << " = static_cast<" << cpp_type << "*>(" << ptr_expr << ")[idx_"
+        << result_var << "];";
+  }
 
   return oss.str();
 }

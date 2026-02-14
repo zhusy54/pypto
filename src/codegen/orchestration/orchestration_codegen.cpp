@@ -42,6 +42,37 @@ namespace {
 using namespace pypto::ir;  // NOLINT(build/namespaces)
 
 /**
+ * @brief Extract the original base name from an SSA-renamed variable
+ *
+ * SSA naming patterns:
+ *   Regular vars: "{base}_{version}"  (e.g., "mi_update_4" -> "mi_update")
+ *   Iter args:    "{base}_iter_{version}" (e.g., "mi_update_iter_2" -> "mi_update")
+ *
+ * Used to match input args with output vars for inout parameter detection.
+ */
+std::string GetSSABaseName(const std::string& name) {
+  // Check for iter_arg pattern: "{base}_iter_{version}"
+  size_t iter_pos = name.rfind("_iter_");
+  if (iter_pos != std::string::npos) {
+    std::string suffix = name.substr(iter_pos + 6);
+    if (!suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit)) {
+      return name.substr(0, iter_pos);
+    }
+  }
+
+  // Check for regular var pattern: "{base}_{version}"
+  size_t last_underscore = name.rfind('_');
+  if (last_underscore != std::string::npos && last_underscore > 0) {
+    std::string suffix = name.substr(last_underscore + 1);
+    if (!suffix.empty() && std::all_of(suffix.begin(), suffix.end(), ::isdigit)) {
+      return name.substr(0, last_underscore);
+    }
+  }
+
+  return name;
+}
+
+/**
  * @brief Check if an operation is a built-in IR operation (not a user-defined function)
  *
  * Built-in operations include block-level ops (block.*), tensor-level ops (tensor.*),
@@ -89,33 +120,6 @@ int CountReturnTensors(const FunctionPtr& func) {
     }
   }
   return count;
-}
-
-std::string CalculateTensorSize(const TensorTypePtr& tensor_type) {
-  std::ostringstream oss;
-
-  // Calculate total number of elements by multiplying all dimensions
-  bool first = true;
-  for (const auto& dim : tensor_type->shape_) {
-    if (first) {
-      oss << CodegenBase::GenerateExprString(dim);
-      first = false;
-    } else {
-      oss << " * " << CodegenBase::GenerateExprString(dim);
-    }
-  }
-
-  // If shape is empty, it's a scalar (1 element)
-  if (first) {
-    oss << "1";
-  }
-
-  // Multiply by element size in bytes
-  size_t element_bits = tensor_type->dtype_.GetBit();
-  size_t element_bytes = (element_bits + 7) / 8;  // Round up to nearest byte
-  oss << " * " << element_bytes;
-
-  return oss.str();
 }
 
 // Helper: resolve the TensorType for an intermediate tensor, handling both
@@ -342,23 +346,6 @@ std::string GenerateArgDefines(const FunctionPtr& func, const std::vector<std::s
   }
 
   oss << "\n";
-
-  // Size defines for input tensor params
-  for (const auto& param : func->params_) {
-    if (As<TensorType>(param->GetType())) {
-      std::string upper_name = param->name_;
-      for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-      oss << "#define ARG_SIZE_" << upper_name << " " << idx++ << "\n";
-    }
-  }
-  // Size defines for return tensors
-  for (const auto& name : return_var_names) {
-    std::string upper_name = name;
-    for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-    oss << "#define ARG_SIZE_" << upper_name << " " << idx++ << "\n";
-  }
-
-  oss << "\n";
   return oss.str();
 }
 
@@ -384,8 +371,8 @@ int CountExpectedArgs(const FunctionPtr& func, int return_tensor_count) {
       tensor_param_count++;
     }
   }
-  // pointers + sizes for all tensors (params + returns)
-  return (tensor_param_count + return_tensor_count) * 2;
+  // pointers for all tensors (params + returns)
+  return tensor_param_count + return_tensor_count;
 }
 
 std::string GenerateConfigFunction(int expected_arg_count) {
@@ -671,6 +658,17 @@ class OrchestrationStmtCodegen : public CodegenBase {
       output_tensor_names.insert(result_var);
     }
 
+    // Build a map from SSA base name to output var name for inout detection.
+    // After SSA conversion, input args (e.g., "mi_update_iter_2") and output vars
+    // (e.g., "mi_update_4") have different names but share the same base ("mi_update").
+    std::map<std::string, std::string> output_base_to_var;
+    for (const auto& out_name : output_tensor_names) {
+      output_base_to_var[GetSSABaseName(out_name)] = out_name;
+    }
+
+    // Track which output vars are consumed as inout (no separate make_output_param needed)
+    std::set<std::string> inout_output_vars;
+
     // Build PTOParam entries
     struct ParamEntry {
       std::string kind;  // "make_input_param", "make_output_param", "make_scalar_param"
@@ -682,12 +680,29 @@ class OrchestrationStmtCodegen : public CodegenBase {
     for (const auto& arg : call->args_) {
       std::string var_name = TryGetVarName(arg);
       if (!var_name.empty()) {
+        // Check if this is a scalar variable (not a tensor) -> make_scalar_param
+        if (As<ScalarType>(arg->GetType())) {
+          params.push_back({"make_scalar_param", var_name});
+          continue;
+        }
+
         std::string ext_name = GetExternalTensorName(var_name);
+
+        // Check for inout: exact name match first
         if (output_tensor_names.count(var_name)) {
-          // Same tensor appears as both input and output -> inout
           params.push_back({"make_inout_param", ext_name});
+          inout_output_vars.insert(var_name);
         } else {
-          params.push_back({"make_input_param", ext_name});
+          // Check for inout via SSA base name match (handles iter_arg renaming)
+          std::string input_base = GetSSABaseName(var_name);
+          auto base_it = output_base_to_var.find(input_base);
+          if (base_it != output_base_to_var.end()) {
+            // Input and output share the same base name -> inout on the input tensor
+            params.push_back({"make_inout_param", ext_name});
+            inout_output_vars.insert(base_it->second);
+          } else {
+            params.push_back({"make_input_param", ext_name});
+          }
         }
       } else if (auto const_int = As<ConstInt>(arg)) {
         std::string cpp_type = const_int->dtype().ToCTypeString();
@@ -706,34 +721,19 @@ class OrchestrationStmtCodegen : public CodegenBase {
       }
     }
 
-    // Output args (only those not already added as inout)
+    // Output args (skip those already added as inout)
     std::set<std::string> task_output_tensors;
     if (tuple_it != tuple_var_to_elements_.end()) {
       for (const auto& [index, elem_var] : tuple_it->second) {
+        if (inout_output_vars.count(elem_var)) continue;
         std::string ext_name = GetExternalTensorName(elem_var);
         task_output_tensors.insert(elem_var);
-        bool already_added = false;
-        for (const auto& p : params) {
-          if (p.kind == "make_inout_param" && p.value == ext_name) {
-            already_added = true;
-            break;
-          }
-        }
-        if (!already_added) {
-          params.push_back({"make_output_param", ext_name});
-        }
+        params.push_back({"make_output_param", ext_name});
       }
     } else if (!result_var.empty()) {
-      std::string ext_name = GetExternalTensorName(result_var);
-      task_output_tensors.insert(result_var);
-      bool already_added = false;
-      for (const auto& p : params) {
-        if (p.kind == "make_inout_param" && p.value == ext_name) {
-          already_added = true;
-          break;
-        }
-      }
-      if (!already_added) {
+      if (!inout_output_vars.count(result_var)) {
+        std::string ext_name = GetExternalTensorName(result_var);
+        task_output_tensors.insert(result_var);
         params.push_back({"make_output_param", ext_name});
       }
     }
@@ -867,29 +867,15 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
     if (As<TensorType>(param->GetType())) {
       std::string upper_name = param->name_;
       for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-      oss << "    void* arg_" << param->name_ << "_ptr = (void*)(uintptr_t)args[ARG_PTR_" << upper_name
-          << "];\n";
+      oss << "    void* arg_" << param->name_ << "_ptr = reinterpret_cast<void*>(args[ARG_PTR_" << upper_name
+          << "]);\n";
     }
   }
   for (const auto& name : unique_return_vars) {
     std::string upper_name = name;
     for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-    oss << "    void* arg_" << name << "_ptr = (void*)(uintptr_t)args[ARG_PTR_" << upper_name << "];\n";
-  }
-
-  // Extract sizes
-  oss << "\n    // Extract sizes\n";
-  for (const auto& param : func->params_) {
-    if (As<TensorType>(param->GetType())) {
-      std::string upper_name = param->name_;
-      for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-      oss << "    size_t size_" << param->name_ << " = (size_t)args[ARG_SIZE_" << upper_name << "];\n";
-    }
-  }
-  for (const auto& name : unique_return_vars) {
-    std::string upper_name = name;
-    for (auto& ch : upper_name) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-    oss << "    size_t size_" << name << " = (size_t)args[ARG_SIZE_" << upper_name << "];\n";
+    oss << "    void* arg_" << name << "_ptr = reinterpret_cast<void*>(args[ARG_PTR_" << upper_name
+        << "]);\n";
   }
 
   // Create statement codegen (used for both external tensor generation and task submission)
@@ -920,13 +906,8 @@ OrchestrationResult GenerateOrchestration(const ir::ProgramPtr& program, const i
         ret_tensor_type = As<TensorType>(func->return_types_[ret_idx]);
       }
     }
-    if (ret_tensor_type) {
-      oss << GenerateMakeTensorExternal(name, "arg_" + name + "_ptr", ret_tensor_type, stmt_codegen);
-    } else {
-      // Fallback to size-based
-      oss << "    Tensor ext_" << name << " = make_tensor_external(arg_" << name << "_ptr, size_" << name
-          << ");\n";
-    }
+    CHECK(ret_tensor_type) << "Cannot resolve TensorType for return variable: " << name;
+    oss << GenerateMakeTensorExternal(name, "arg_" + name + "_ptr", ret_tensor_type, stmt_codegen);
   }
 
   // 9. Generate task submission code via statement codegen
