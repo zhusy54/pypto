@@ -40,9 +40,9 @@ class PagedAttentionProgram:
     @pl.function(type=pl.FunctionType.InCore)
     def kernel_init_inplace(
         self,
-        oi: pl.Tensor[[16, 16], pl.FP32],
-        li: pl.Tensor[[16], pl.FP32],
-        mi: pl.Tensor[[16], pl.FP32],
+        oi: pl.Out[pl.Tensor[[16, 128], pl.FP32]],
+        li: pl.Out[pl.Tensor[[16], pl.FP32]],
+        mi: pl.Out[pl.Tensor[[16], pl.FP32]],
     ) -> tuple[
         pl.Tensor[[16, 128], pl.FP32],
         pl.Tensor[[16], pl.FP32],
@@ -57,7 +57,7 @@ class PagedAttentionProgram:
         self,
         qi: pl.Tensor[[16, 128], pl.BF16],
         kj: pl.Tensor[[128, 128], pl.BF16],
-        output: pl.Tensor[[16, 128], pl.FP32],
+        output: pl.Out[pl.Tensor[[16, 128], pl.FP32]],
     ) -> pl.Tensor[[16, 128], pl.FP32]:
         """QK matmul: sij = qi @ kj (CUBE)."""
         qi_tile: pl.Tile[[16, 16], pl.BF16] = pl.load(qi, [0, 0], [16, 16])
@@ -72,9 +72,9 @@ class PagedAttentionProgram:
         self,
         sij: pl.Tensor[[16, 128], pl.FP32],
         scale: pl.Scalar[pl.FP32],
-        out_pij: pl.Tensor[[16, 128], pl.BF16],
-        out_mi: pl.Tensor[[16], pl.FP32],
-        out_li: pl.Tensor[[16], pl.FP32],
+        out_pij: pl.Out[pl.Tensor[[16, 128], pl.BF16]],
+        out_mi: pl.Out[pl.Tensor[[16], pl.FP32]],
+        out_li: pl.Out[pl.Tensor[[16], pl.FP32]],
     ) -> tuple[
         pl.Tensor[[16, 128], pl.BF16],
         pl.Tensor[[16], pl.FP32],
@@ -104,8 +104,8 @@ class PagedAttentionProgram:
         self,
         pij: pl.Tensor[[16, 128], pl.BF16],
         vj: pl.Tensor[[128, 128], pl.BF16],
-        output: pl.Tensor[[16, 16], pl.FP32],
-    ) -> pl.Tensor[[16, 16], pl.FP32]:
+        output: pl.Out[pl.Tensor[[16, 128], pl.FP32]],
+    ) -> pl.Tensor[[16, 128], pl.FP32]:
         """PV matmul: oi_tmp = pij @ vj (CUBE)."""
         p_tile: pl.Tile[[16, 16], pl.BF16] = pl.load(pij, [0, 0], [16, 16])
         v_tile: pl.Tile[[16, 16], pl.BF16] = pl.load(vj, [0, 0], [16, 16])
@@ -120,10 +120,10 @@ class PagedAttentionProgram:
         mi: pl.Tensor[[16], pl.FP32],
         li: pl.Tensor[[16], pl.FP32],
         oi_tmp: pl.Tensor[[16, 128], pl.FP32],
-        mi_update: pl.Tensor[[16], pl.FP32],
-        li_update: pl.Tensor[[16], pl.FP32],
-        oi: pl.Tensor[[16, 128], pl.FP32],
-        out_view: pl.Tensor[[16, 128], pl.FP32],
+        mi_update: pl.InOut[pl.Tensor[[16], pl.FP32]],
+        li_update: pl.InOut[pl.Tensor[[16], pl.FP32]],
+        oi: pl.InOut[pl.Tensor[[16, 128], pl.FP32]],
+        out_view: pl.Out[pl.Tensor[[16, 128], pl.FP32]],
         is_first: pl.Scalar[pl.INT64],
         is_last: pl.Scalar[pl.INT64],
     ) -> tuple[

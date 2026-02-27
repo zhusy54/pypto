@@ -50,7 +50,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -64,8 +64,10 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
-                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(c, b)
+                c: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                c = self.kernel_add(a, b, c)
+                d: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                d = self.kernel_add(c, b, d)
                 return d
 
         generator = codegen.CCECodegen()
@@ -161,7 +163,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -177,7 +179,8 @@ class TestOrchestration:
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 val: pl.Scalar[pl.FP32] = pl.tensor.read(t, [1, 3])  # noqa: F841
-                result: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                result: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                result = self.kernel_add(a, b, result)
                 return result
 
         generator = codegen.CCECodegen()
@@ -201,7 +204,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -215,7 +218,8 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                c: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                c = self.kernel_add(a, b, c)
                 return c
 
         generator = codegen.CCECodegen()
@@ -238,7 +242,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -252,8 +256,10 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> tuple[pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 16], pl.FP32]]:
-                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
-                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
+                c: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                c = self.kernel_add(a, b, c)
+                d: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                d = self.kernel_add(a, b, d)
                 return c, d
 
         generator = codegen.CCECodegen()
@@ -292,7 +298,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -305,7 +311,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 scalar: pl.Scalar[pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 x: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 result: pl.Tile[[16, 16], pl.FP32] = pl.add(x, scalar)
@@ -317,7 +323,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -331,11 +337,16 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                c: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(a, b)
-                d: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add_scalar(c, 1.0)  # type: ignore[reportArgumentType]
-                e: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add_scalar(c, 2.0)  # type: ignore[reportArgumentType]
-                g: pl.Tensor[[16, 16], pl.FP32] = self.kernel_mul(d, e)
-                f: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(g, c)
+                c: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                c = self.kernel_add(a, b, c)
+                d: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                d = self.kernel_add_scalar(c, 1.0, d)  # type: ignore[reportArgumentType]
+                e: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                e = self.kernel_add_scalar(c, 2.0, e)  # type: ignore[reportArgumentType]
+                g: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                g = self.kernel_mul(d, e, g)
+                f: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                f = self.kernel_add(g, c, f)
                 return f
 
         generator = codegen.CCECodegen()
@@ -461,8 +472,8 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                out_s: pl.Tensor[[16, 16], pl.FP32],
-                out_d: pl.Tensor[[16, 16], pl.FP32],
+                out_s: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
+                out_d: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 16], pl.FP32]]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -477,7 +488,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -491,8 +502,11 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                x, y = self.kernel_pair(a, b)
-                result: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(x, y)
+                x: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                y: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                x, y = self.kernel_pair(a, b, x, y)
+                result: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                result = self.kernel_add(x, y, result)
                 return result
 
         generator = codegen.CCECodegen()
@@ -525,8 +539,8 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                out_s: pl.Tensor[[16, 16], pl.FP32],
-                out_d: pl.Tensor[[16, 16], pl.FP32],
+                out_s: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
+                out_d: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 16], pl.FP32]]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -542,7 +556,9 @@ class TestOrchestration:
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
             ) -> tuple[pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 16], pl.FP32]]:
-                x, y = self.kernel_pair(a, b)
+                x: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                y: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                x, y = self.kernel_pair(a, b, x, y)
                 return x, y
 
         generator = codegen.CCECodegen()
@@ -574,10 +590,10 @@ class TestOrchestration:
                 mij: pl.Tensor[[16, 1], pl.FP32],
                 lij: pl.Tensor[[16, 1], pl.FP32],
                 oi_new: pl.Tensor[[16, 16], pl.FP32],
-                mi: pl.Tensor[[16, 1], pl.FP32],
-                li: pl.Tensor[[16, 1], pl.FP32],
-                oi: pl.Tensor[[16, 16], pl.FP32],
-                dst: pl.Tensor[[16, 16], pl.FP32],
+                mi: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                li: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                oi: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                dst: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 1], pl.FP32],
                 pl.Tensor[[16, 1], pl.FP32],
@@ -599,7 +615,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -618,27 +634,36 @@ class TestOrchestration:
                 oi_in: pl.Tensor[[16, 16], pl.FP32],
                 dst_in: pl.Tensor[[16, 16], pl.FP32],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                mi, li, oi, dst = self.online_update(mij, lij, oi_new, mi_in, li_in, oi_in, dst_in)
-                final: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(oi, dst)
+                mi_in, li_in, oi_in, dst_in = self.online_update(
+                    mij, lij, oi_new, mi_in, li_in, oi_in, dst_in
+                )
+                final: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                final = self.kernel_add(oi_in, dst_in, final)
                 return final
 
         generator = codegen.CCECodegen()
         files = generator.generate(FourTupleProgram)
         code = files["orchestration/orch_four_tuple.cpp"]
 
-        # All 4 tuple elements are intermediate tensors with correct shapes
-        # [16, 1] FP32
-        assert "mi_shapes[2] = {16, 1}" in code
-        # [16, 16] FP32
-        assert "oi_shapes[2] = {16, 16}" in code
-        for name in ["mi", "li", "oi", "dst"]:
-            assert f"Tensor {name} = make_tensor(" in code, f"Missing make_tensor for {name}"
+        # All orch params are external tensors
+        assert "make_tensor_external(arg_mi_in_ptr" in code
+        assert "make_tensor_external(arg_oi_in_ptr" in code
+        assert "make_tensor_external(arg_dst_in_ptr" in code
 
         # Final return tensor is external
         assert "make_tensor_external(arg_final_ptr" in code
 
         # Two tasks: online_update + kernel_add
         assert code.count("pto2_rt_submit_task") == 2
+
+        # online_update: 3 In + 3 InOut + 1 Out = 7 params
+        assert "make_input_param(ext_mij)" in code
+        assert "make_inout_param(ext_mi_in)" in code
+        assert "make_output_param(ext_dst_in)" in code
+
+        # kernel_add: 2 In + 1 Out = 3 params
+        assert "make_input_param(ext_oi_in)" in code
+        assert "make_output_param(ext_final)" in code
 
         # No PTO2_SCOPE: no control flow
         assert "PTO2_SCOPE" not in code
@@ -654,7 +679,7 @@ class TestOrchestration:
             def kernel_fill(
                 self,
                 a: pl.Tensor[[32, 32], pl.FP16],
-                output: pl.Tensor[[32, 32], pl.FP16],
+                output: pl.Out[pl.Tensor[[32, 32], pl.FP16]],
             ) -> pl.Tensor[[32, 32], pl.FP16]:
                 t: pl.Tile[[32, 32], pl.FP16] = pl.load(a, [0, 0], [32, 32])
                 out: pl.Tensor[[32, 32], pl.FP16] = pl.store(t, [0, 0], [32, 32], output)
@@ -666,7 +691,8 @@ class TestOrchestration:
                 a: pl.Tensor[[32, 32], pl.FP16],
             ) -> pl.Tensor[[32, 32], pl.FP16]:
                 buf: pl.Tensor[[32, 32], pl.FP16] = pl.create_tensor([32, 32], dtype=pl.FP16)
-                result: pl.Tensor[[32, 32], pl.FP16] = self.kernel_fill(buf)
+                result: pl.Tensor[[32, 32], pl.FP16] = pl.create_tensor([32, 32], dtype=pl.FP16)
+                result = self.kernel_fill(buf, result)
                 return result
 
         generator = codegen.CCECodegen()
@@ -696,10 +722,10 @@ class TestOrchestration:
                 mij: pl.Tensor[[16, 1], pl.FP32],
                 lij: pl.Tensor[[16, 1], pl.FP32],
                 oi_new: pl.Tensor[[16, 16], pl.FP32],
-                mi: pl.Tensor[[16, 1], pl.FP32],
-                li: pl.Tensor[[16, 1], pl.FP32],
-                oi: pl.Tensor[[16, 16], pl.FP32],
-                dst: pl.Tensor[[16, 16], pl.FP32],
+                mi: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                li: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                oi: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                dst: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 1], pl.FP32],
                 pl.Tensor[[16, 1], pl.FP32],
@@ -731,7 +757,8 @@ class TestOrchestration:
                 pl.Tensor[[16, 16], pl.FP32],
                 pl.Tensor[[16, 16], pl.FP32],
             ]:
-                mi, li, oi, dst = self.online_update(mij, lij, oi_new, mi, li, oi)
+                dst: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                mi, li, oi, dst = self.online_update(mij, lij, oi_new, mi, li, oi, dst)
                 return mi, li, oi, dst
 
         generator = codegen.CCECodegen()
@@ -837,7 +864,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -852,7 +879,8 @@ class TestOrchestration:
                 b: pl.Tensor[[64, 128], pl.FP32],
             ) -> pl.Tensor[[64, 128], pl.FP32]:
                 d0: pl.Scalar[pl.INT64] = pl.tensor.dim(a, 0)  # noqa: F841
-                result: pl.Tensor[[64, 128], pl.FP32] = self.kernel_add(a, b)
+                result: pl.Tensor[[64, 128], pl.FP32] = pl.create_tensor([64, 128], dtype=pl.FP32)
+                result = self.kernel_add(a, b, result)
                 return result
 
         generator = codegen.CCECodegen()
@@ -878,7 +906,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 b: pl.Tensor[[16, 16], pl.FP32],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 a_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 b_tile: pl.Tile[[16, 16], pl.FP32] = pl.load(b, [0, 0], [16, 16])
@@ -897,7 +925,8 @@ class TestOrchestration:
                 out: pl.Tensor[[64, 16], pl.FP32] = data
                 for i in pl.range(n_blocks):
                     chunk: pl.Tensor[[16, 16], pl.FP32] = pl.view(data, [16, 16], [i * 16, 0])
-                    result: pl.Tensor[[16, 16], pl.FP32] = self.kernel_add(chunk, bias)  # noqa: F841
+                    result: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                    result = self.kernel_add(chunk, bias, result)  # noqa: F841
                 return out
 
         generator = codegen.CCECodegen()
@@ -931,7 +960,7 @@ class TestOrchestration:
                 self,
                 a: pl.Tensor[[16, 16], pl.FP32],
                 flag: pl.Scalar[pl.INT64],
-                output: pl.Tensor[[16, 16], pl.FP32],
+                output: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 t: pl.Tile[[16, 16], pl.FP32] = pl.load(a, [0, 0], [16, 16])
                 out: pl.Tensor[[16, 16], pl.FP32] = pl.store(t, [0, 0], [16, 16], output)
@@ -947,7 +976,8 @@ class TestOrchestration:
                         is_first: pl.Scalar[pl.INT64] = pl.yield_(1)
                     else:
                         is_first: pl.Scalar[pl.INT64] = pl.yield_(0)
-                    result: pl.Tensor[[16, 16], pl.FP32] = self.kernel_process(a, is_first)
+                    result: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                    result = self.kernel_process(a, is_first, result)
                 return result
 
         generator = codegen.CCECodegen()
@@ -980,8 +1010,8 @@ class TestOrchestration:
             @pl.function(type=pl.FunctionType.InCore)
             def kernel_a(
                 self,
-                x: pl.Tensor[[16, 16], pl.FP32],
-                y: pl.Tensor[[16, 16], pl.FP32],
+                x: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                y: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 16], pl.FP32],
                 pl.Tensor[[16, 16], pl.FP32],
@@ -995,8 +1025,8 @@ class TestOrchestration:
             @pl.function(type=pl.FunctionType.InCore)
             def kernel_b(
                 self,
-                a: pl.Tensor[[16, 16], pl.FP32],
-                b: pl.Tensor[[16, 16], pl.FP32],
+                a: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                b: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 16], pl.FP32],
                 pl.Tensor[[16, 16], pl.FP32],
@@ -1075,8 +1105,8 @@ class TestOrchestration:
             @pl.function(type=pl.FunctionType.InCore)
             def kernel_init(
                 self,
-                a: pl.Tensor[[16, 16], pl.FP32],
-                b: pl.Tensor[[16, 16], pl.FP32],
+                a: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                b: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 16], pl.FP32],
                 pl.Tensor[[16, 16], pl.FP32],
@@ -1091,8 +1121,8 @@ class TestOrchestration:
             def kernel_update(
                 self,
                 x: pl.Tensor[[16, 16], pl.FP32],
-                a: pl.Tensor[[16, 16], pl.FP32],
-                b: pl.Tensor[[16, 16], pl.FP32],
+                a: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
+                b: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 16], pl.FP32],
                 pl.Tensor[[16, 16], pl.FP32],
@@ -1132,7 +1162,8 @@ class TestOrchestration:
         assert "b_acc = b_acc;" not in code
 
         # make_tensor declarations exist (exactly once each)
-        assert code.count("Tensor a_acc = make_tensor(") == 1
+        # a_acc is a return value → external (make_tensor_external)
+        assert code.count("Tensor ext_a_acc = make_tensor_external(") == 1
         assert code.count("Tensor b_acc = make_tensor(") == 1
 
         # For loop exists with correct structure

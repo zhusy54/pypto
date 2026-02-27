@@ -76,7 +76,7 @@ class QKMatmulTestCase(PTOTestCase):
                 self,
                 qi: pl.Tensor[[16, 16], pl.FP32],
                 kj_t: pl.Tensor[[16, 16], pl.FP32],
-                sij: pl.Tensor[[16, 16], pl.FP32],
+                sij: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 qi_l1 = pl.load(qi, [0, 0], [16, 16], target_memory=pl.MemorySpace.Mat)  # Load qi to L1
                 kj_l1 = pl.load(kj_t, [0, 0], [16, 16], target_memory=pl.MemorySpace.Mat)  # Load kj_t to L1
@@ -90,7 +90,8 @@ class QKMatmulTestCase(PTOTestCase):
             def orchestrator(
                 self, qi: pl.Tensor[[16, 16], pl.FP32], kj_t: pl.Tensor[[16, 16], pl.FP32]
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                out_sij = self.qk_matmul(qi, kj_t)
+                out_sij: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                out_sij = self.qk_matmul(qi, kj_t, out_sij)
                 return out_sij
 
         return QKMatmulProgram
@@ -146,9 +147,9 @@ class SoftmaxPrepareTestCase(PTOTestCase):
                 self,
                 sij: pl.Tensor[[16, 16], pl.FP32],
                 scale: pl.Scalar[pl.FP32],
-                pij: pl.Tensor[[16, 16], pl.FP32],
-                mij: pl.Tensor[[16, 1], pl.FP32],
-                lij: pl.Tensor[[16, 1], pl.FP32],
+                pij: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
+                mij: pl.Out[pl.Tensor[[16, 1], pl.FP32]],
+                lij: pl.Out[pl.Tensor[[16, 1], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 16], pl.FP32], pl.Tensor[[16, 1], pl.FP32], pl.Tensor[[16, 1], pl.FP32]
             ]:
@@ -190,7 +191,10 @@ class SoftmaxPrepareTestCase(PTOTestCase):
             ]:
                 # Read scale value from config tensor
                 scale: pl.Scalar[pl.FP32] = pl.tensor.read(config, [0])
-                pij_out, mij_out, lij_out = self.softmax_prepare(sij, scale)
+                pij_out: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                mij_out: pl.Tensor[[16, 1], pl.FP32] = pl.create_tensor([16, 1], dtype=pl.FP32)
+                lij_out: pl.Tensor[[16, 1], pl.FP32] = pl.create_tensor([16, 1], dtype=pl.FP32)
+                pij_out, mij_out, lij_out = self.softmax_prepare(sij, scale, pij_out, mij_out, lij_out)
                 return pij_out, mij_out, lij_out
 
         return SoftmaxPrepareProgram
@@ -247,7 +251,7 @@ class PVMatmulTestCase(PTOTestCase):
                 self,
                 pij: pl.Tensor[[16, 16], pl.FP32],
                 vj: pl.Tensor[[16, 16], pl.FP32],
-                oi_new: pl.Tensor[[16, 16], pl.FP32],
+                oi_new: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> pl.Tensor[[16, 16], pl.FP32]:
                 pij_l1 = pl.load(pij, [0, 0], [16, 16], target_memory=pl.MemorySpace.Mat)  # Load pij to L1
                 vj_l1 = pl.load(vj, [0, 0], [16, 16], target_memory=pl.MemorySpace.Mat)  # Load vj to L1
@@ -261,7 +265,8 @@ class PVMatmulTestCase(PTOTestCase):
             def orchestrator(
                 self, pij: pl.Tensor[[16, 16], pl.FP32], vj: pl.Tensor[[16, 16], pl.FP32]
             ) -> pl.Tensor[[16, 16], pl.FP32]:
-                out_oi = self.pv_matmul(pij, vj)
+                out_oi: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                out_oi = self.pv_matmul(pij, vj, out_oi)
                 return out_oi
 
         return PVMatmulProgram
@@ -339,12 +344,12 @@ class OnlineUpdateTestCase(PTOTestCase):
                 mij: pl.Tensor[[16, 1], pl.FP32],
                 lij: pl.Tensor[[16, 1], pl.FP32],
                 oi_new: pl.Tensor[[16, 16], pl.FP32],
-                mi: pl.Tensor[[16, 1], pl.FP32],
-                li: pl.Tensor[[16, 1], pl.FP32],
-                oi: pl.Tensor[[16, 16], pl.FP32],
+                mi: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                li: pl.InOut[pl.Tensor[[16, 1], pl.FP32]],
+                oi: pl.InOut[pl.Tensor[[16, 16], pl.FP32]],
                 is_first: pl.Scalar[pl.BOOL],
                 is_last: pl.Scalar[pl.BOOL],
-                dst: pl.Tensor[[16, 16], pl.FP32],
+                dst: pl.Out[pl.Tensor[[16, 16], pl.FP32]],
             ) -> tuple[
                 pl.Tensor[[16, 1], pl.FP32],
                 pl.Tensor[[16, 1], pl.FP32],
@@ -435,7 +440,8 @@ class OnlineUpdateTestCase(PTOTestCase):
                 # Read is_first and is_last from config tensor
                 is_first: pl.Scalar[pl.INT64] = pl.tensor.read(config, [0])
                 is_last: pl.Scalar[pl.INT64] = pl.tensor.read(config, [1])
-                mi, li, oi, dst = self.online_update(mij, lij, oi_new, mi, li, oi, is_first, is_last)
+                dst: pl.Tensor[[16, 16], pl.FP32] = pl.create_tensor([16, 16], dtype=pl.FP32)
+                mi, li, oi, dst = self.online_update(mij, lij, oi_new, mi, li, oi, is_first, is_last, dst)
                 return mi, li, oi, dst
 
         return OnlineUpdateProgram

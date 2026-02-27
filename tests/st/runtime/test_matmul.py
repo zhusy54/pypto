@@ -43,7 +43,7 @@ class TestMatmul(PTOTestCase):
                 self,
                 a: pl.Tensor[[64, 64], pl.FP32],
                 b: pl.Tensor[[64, 64], pl.FP32],
-                c: pl.Tensor[[64, 64], pl.FP32],
+                c: pl.Out[pl.Tensor[[64, 64], pl.FP32]],
             ) -> pl.Tensor[[64, 64], pl.FP32]:
                 tile_a_l1 = pl.block.load(
                     a, offsets=[0, 0], shapes=[64, 64], target_memory=pl.MemorySpace.Mat
@@ -62,7 +62,8 @@ class TestMatmul(PTOTestCase):
             def orchestrator(
                 self, a: pl.Tensor[[64, 64], pl.FP32], b: pl.Tensor[[64, 64], pl.FP32]
             ) -> pl.Tensor[[64, 64], pl.FP32]:
-                out_c = self.matmul(a, b)
+                out_c: pl.Tensor[[64, 64], pl.FP32] = pl.create_tensor([64, 64], dtype=pl.FP32)
+                out_c = self.matmul(a, b, out_c)
                 return out_c
 
         return MatmulProgram
